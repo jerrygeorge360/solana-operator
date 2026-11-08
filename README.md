@@ -1,6 +1,6 @@
 # Solana Operator
 
-A conversational DeepSeek agent for Solana Devnet. Ask about your wallet balance, prepare a SOL transfer, or plan an atomic bulk payment to multiple wallets, then review the details and approve in Phantom.
+A conversational AI agent for Solana Devnet. Ask about your wallet balance, prepare a SOL transfer, or plan an atomic bulk payment to multiple wallets, then review the details and approve in Phantom.
 
 **Live app:** https://solana-operator-live.vercel.app
 
@@ -8,12 +8,12 @@ A conversational DeepSeek agent for Solana Devnet. Ask about your wallet balance
 
 ## What it does
 
-- Conversational DeepSeek agent with follow-up questions and multi-turn context.
+- Conversational AI agent with follow-up questions and multi-turn context.
 - Live Solana Devnet balance inspection via RPC.
 - Single-recipient SOL transfers and atomic **bulk transfers to 2–10 recipients**.
 - Transaction review showing all recipient addresses, per-recipient amounts, total SOL, fees, minimum wallet balance, and projected balance.
 - Deterministic validation of addresses, duplicate recipients, total amount, transaction size, current balance, and estimated fee.
-- Explicit wallet signature: **DeepSeek cannot sign or submit transfers independently**.
+- Explicit wallet signature: **The AI agent cannot sign or submit transfers independently**.
 - Live Devnet confirmation, Solana Explorer receipts, pending-transaction status recovery.
 - Wallet-free guided demo and Phantom mobile browser guidance.
 
@@ -38,7 +38,7 @@ Use Phantom configured for **Solana Devnet**, and only Devnet test SOL from the 
 
 ### Limitations
 
-**Devnet only.** Test SOL has no monetary value. The batch is deliberately capped at ten recipients and must fit in a single legacy Solana transaction. More complex transfer types, token swaps, recurring automation and mainnet support are not implemented. A bulk proposal and DeepSeek tool selection were tested live; an end-to-end wallet-signed bulk transaction should not be claimed as verified until it is actually recorded.
+**Devnet only.** Test SOL has no monetary value. The batch is deliberately capped at ten recipients and must fit in a single legacy Solana transaction. More complex transfer types, token swaps, recurring automation and mainnet support are not implemented. A bulk proposal and AI tool selection were tested live; an end-to-end wallet-signed bulk transaction should not be claimed as verified until it is actually recorded.
 
 ## Safety
 
