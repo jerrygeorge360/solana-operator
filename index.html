@@ -17,7 +17,7 @@ let provider=null,wallet=null,lamports=null,ready=null;
 const S=()=>{if(!window.solanaWeb3)throw Error("Solana SDK failed to load. Refresh the page.");return window.solanaWeb3};
 const C=()=>new (S().Connection)(RPC,"confirmed");
 const notify=m=>$("message").textContent=m;
-const addTrace=t=>{let el=document.createElement("div");el.textContent=t;$("trace").appendChild(el};
+const addTrace=t=>{let el=document.createElement("div");el.textContent=t;$("trace").appendChild(el)};
 const short=a=>a.slice(0,5)+"…"+a.slice(-5);
 const parseCommand=text=>{let amt=text.match(/(?:send|transfer|pay)\s+(\d+(?:\.\d+)?)\s*sol\b/i);let address=text.match(/(?:to\s+)([1-9A-HJ-NP-Za-km-z]{32,44})\b/);let min=text.match(/(?:keep|retain|leave|minimum|at least)\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*sol/i);return{intent:amt?"transfer":"balance",amountSol:amt?Number(amt[1]):null,recipient:address?address[1]:null,minimumBalanceSol:min?Number(min[1]):0,explanation:"Deterministic fallback: AI provider unavailable."}};
 async function refresh(){if(!wallet){notify("Connect a Devnet wallet first.");return}try{lamports=await C().getBalance(wallet);$("balance").innerHTML=(lamports/S().LAMPORTS_PER_SOL).toFixed(4)+" <small>SOL</small>";$("address").textContent=wallet.toBase58();notify("Live wallet state fetched from Solana Devnet.")}catch(e){lamports=null;notify("RPC lookup failed: "+e.message)}}
