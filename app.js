@@ -89,7 +89,7 @@ function renderAgent(result,instruction){
     : result.intent==="balance"
       ? "I’ll read your wallet balance from Solana Devnet."
       : "Try asking for your balance or a specific SOL transfer.";
- if(result.mode==="ai"&&result.explanation)trace("DeepSeek note: "+String(result.explanation).slice(0,350));
+ // Keep model prose out of the UI. Show only validated action details and recorded tool steps.
  const AI=result.mode==="ai";D.source.textContent=AI?"DeepSeek":"Built-in parser";
  D.model.textContent=AI?"DeepSeek responded":"Built-in parser used";
  (Array.isArray(result.steps)?result.steps:[]).forEach(trace);
@@ -130,6 +130,7 @@ async function makeTransfer(result,text){
  }else{
   pending={tx,lamports,reserve:minLamports,amount};
   showPolicy(true,"The amount fits your limit, including the estimated fee. Review the details before signing.");
+  if(result.mode==="ai")D.explanation.textContent="The amount and recipient match your request. Review the estimated fee and balance left below.";
   trace("Checks passed. Only your wallet can sign.");
   stage(3,[1,2]);status("Review the amount and recipient, then continue to your wallet.","success");
  }
@@ -146,6 +147,7 @@ async function analyze(event){
   if(result.intent==="balance"){
    const balance=await refreshBalance(true);
    D.readout.hidden=false;D.observed.textContent=fmt(balance/SDK().LAMPORTS_PER_SOL,6);
+   D.explanation.textContent="This balance was read from Solana Devnet. No transaction was created.";
    trace("Balance read only. No transaction or signature needed.");
    stage(2,[1]);status("Balance checked.","success");
   }else if(result.intent==="transfer"){
