@@ -48,6 +48,6 @@ if(typeof provider.signTransaction!=="function")throw Error("Your wallet does no
 const link=document.createElement("a");link.href="https://explorer.solana.com/tx/"+signature+"?cluster=devnet";link.target="_blank";link.rel="noopener";link.textContent="View confirmed Devnet transaction ↗";$("receipt").replaceChildren(link);$("policy").textContent="CONFIRMED: transaction accepted on-chain.";await refresh();notify("Transfer confirmed on Solana Devnet.")}catch(e){addTrace("Execution stopped: "+e.message);notify("Transfer not confirmed: "+e.message)}}
 $("connect").onclick=connect;$("refresh").onclick=refresh;$("analyze").onclick=analyze;$("approve").onclick=approve;
 $("sample").onclick=()=>{$("command").value="Check the balance of my wallet and tell me how much SOL I have.";notify("Read-only sample loaded. Click Analyze instruction.")};
-fetch("/api/agent").then(r=>r.json()).then(p=>{$("mode").textContent=p.aiConfigured?(p.model?.includes("deepseek")?"DeepSeek agent":"AI agent"):"Rule-based fallback"}).catch(()=>{$("mode").textContent="Rule-based fallback"});
+fetch("/api/agent").then(r=>r.json()).then(p=>{$("mode").textContent=p.aiConfigured?(p.model?.includes("deepseek")?"DeepSeek configured":"AI configured"):"Rule-based fallback"}).catch(()=>{$("mode").textContent="Rule-based fallback"});
 })();
 </script></body></html>
