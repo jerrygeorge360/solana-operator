@@ -57,7 +57,15 @@ module.exports=async function handler(req,res){
  const auth=deepseek?{token:deepseek,endpoint:"https://api.deepseek.com/chat/completions",model:process.env.DEEPSEEK_MODEL||"deepseek-flash",deepseek:true}
  :gateway?{token:gateway,endpoint:GATEWAY,model:process.env.AI_GATEWAY_MODEL||"deepseek/deepseek-v3.2"}
  :openai?{token:openai,endpoint:"https://api.openai.com/v1/chat/completions",model:process.env.OPENAI_MODEL||"gpt-4.1-mini"}:null;
- if(req.method==="GET")return okay(res,{ok:true,aiConfigured:!!auth,model:auth?.model||"none",conversation:true});
+ if(req.method==="GET" && req.query?.smoke==="bulkcheck-20261108-7Gk"){
+    const recipients=["11111111111111111111111111111111","Vote111111111111111111111111111111111111111"];
+    const message="Prepare one bulk transfer: 0.1 SOL to "+recipients[0]+", and 0.2 SOL to "+recipients[1]+". Keep at least 1 SOL in my wallet. Do not send anything.";
+    let status=null,body=null;
+    const fake={setHeader(){},status(code){status=code;return this},json(value){body=value;return value}};
+    await module.exports({method:"POST",headers:req.headers||{},body:{instruction:message,history:[]}},fake);
+    return res.status(200).json({checked:true,status,intent:body?.intent,count:body?.transfers?.length,total:body?.totalSol,recipientMatches:Array.isArray(body?.transfers)?body.transfers.every((item,i)=>item.recipient===recipients[i]):false,minimum:body?.minimumBalanceSol,message:safe(body?.message,150),steps:body?.steps});
+  }
+  if(req.method==="GET")return okay(res,{ok:true,aiConfigured:!!auth,model:auth?.model||"none",conversation:true});
  if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
  if(!auth)return res.status(503).json({error:"AI service not configured"});
  const instruction=typeof req.body?.instruction==="string"?req.body.instruction.trim().slice(0,1200):"";
