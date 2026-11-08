@@ -302,3 +302,21 @@ kbd{border:1px solid #d7ddd6;border-radius:4px;padding:2px 4px;font-size:10px;ba
 .followup-row textarea{flex:1;min-width:0;min-height:62px;max-height:145px;border-radius:9px;resize:vertical;padding:12px 14px;font-size:13px}
 .followup-row button{align-self:stretch;min-width:72px}
 @media(max-width:480px){.chat-turn.user{max-width:96%}.followup-row{gap:6px}.followup-row button{min-width:58px;padding:10px 12px}}
+
+/* Bulk transfer review: exact recipients and amounts, no shorthand hiding addresses */
+.bulk-recipient-area{min-width:0}
+.bulk-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}
+.bulk-heading>span:last-child{font-size:11px;color:var(--sage);font-weight:700}
+.bulk-table-scroll{width:100%;overflow-x:auto}
+.bulk-table{width:100%;border-collapse:collapse;table-layout:auto}
+.bulk-table th{text-align:left;font-size:10px;letter-spacing:.55px;color:#6c7e70;border-bottom:1px solid #cbd9ce;padding:9px 8px 10px 0}
+.bulk-table td{padding:12px 8px 12px 0;border-bottom:1px solid #dce5dc;font-size:12px;color:#304235;vertical-align:top}
+.bulk-table th:first-child,.bulk-table td:first-child{width:27px;color:#7f9384}
+.bulk-table th:last-child,.bulk-table td:last-child{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:700;padding-right:0}
+.bulk-table .bulk-address{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere;word-break:break-all;font-size:11px;line-height:1.6}
+.bulk-note{font-size:11px;line-height:1.5;color:#5d7867;margin:13px 0 0}
+@media(max-width:440px){
+ .bulk-table td{font-size:11px}
+ .bulk-table .bulk-address{font-size:10px}
+ .bulk-table th,.bulk-table td{padding-left:0;padding-right:6px}
+}
