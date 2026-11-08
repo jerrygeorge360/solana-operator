@@ -23,7 +23,7 @@ Static responsive frontend in `index.html`; Solana Web3.js in browser; Vercel se
 
 ## Run
 
-Serve the project using `npx vercel dev` (or any static server for the frontend). Configure an AI provider in the Vercel project environment for LLM-backed intent parsing. The app requires a browser wallet with **Solana Devnet enabled**, and Devnet test SOL from https://faucet.solana.com.
+Serve the project using `npx vercel dev` (or any static server for the frontend). For AI intent parsing, use either Vercel AI Gateway (set `AI_GATEWAY_MODEL=deepseek/deepseek-v3.2`; requires a verified billing method on the Vercel workspace) or create a DeepSeek API key and set `DEEPSEEK_API_KEY` as an encrypted **server-side** Vercel environment variable. The direct DeepSeek API uses `deepseek-flash` by default and requires API credits. Never paste secrets into source code, chat, or the browser. The app requires a browser wallet with **Solana Devnet enabled**, and Devnet test SOL from https://faucet.solana.com.
 
 ## Demo instruction
 
@@ -34,3 +34,7 @@ Connect a Devnet wallet, and enter: `Send 0.05 SOL to <DEVNET_RECIPIENT_ADDRESS>
 ## Notes
 
 This hackathon MVP is intentionally narrow. The AI component proposes an action, while deterministic code validates it and the user signs it. A parser fallback is not presented as an LLM-powered agent.
+
+## Live DeepSeek integration status
+
+The model-selection and tool-calling code is deployed. A real AI Gateway smoke test on 2026-11-08 returned HTTP 403 because Vercel requires a valid credit card on file for AI Gateway calls. Once Vercel billing is verified, or a funded `DEEPSEEK_API_KEY` is added to the project environment and the project redeployed, test a real instruction before claiming a successful LLM-powered demonstration. The non-AI fallback is intentionally labeled.
