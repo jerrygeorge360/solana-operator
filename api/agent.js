@@ -6,6 +6,7 @@ const isWallet=x=>typeof x==="string"&&PUBLIC_KEY.test(x);
 const numeric=x=>typeof x==="number"&&Number.isFinite(x)?x:null;
 const tools=[
  {type:"function",function:{name:"inspect_wallet",description:"Look up the actual SOL balance of the currently connected wallet on Solana Devnet. Call for balance inquiries. Never invent RPC data.",parameters:{type:"object",properties:{reason:{type:"string"}},required:["reason"]}}},
+ {type:"function",function:{name:"propose_bulk_transfer",description:"Prepare ONE atomic Solana Devnet transaction containing 2 to 10 SOL transfers. Use when the user asks to pay multiple recipient wallets. Collect all recipient addresses and positive amounts through chat; ask for missing details. Never invent recipient addresses or amounts. Never send; wallet signature required after human review.",parameters:{type:"object",properties:{transfers:{type:"array",items:{type:"object",properties:{recipient:{type:"string",description:"Full Solana wallet address given by user"},amountSol:{type:"number",description:"SOL amount for this recipient"}},required:["recipient","amountSol"]}},minimumBalanceSol:{type:"number",description:"SOL to leave in sender wallet, default 0"},explanation:{type:"string"}},required:["transfers","minimumBalanceSol","explanation"]}}},
  {type:"function",function:{name:"propose_transfer",description:"Prepare a transfer proposal only. Call ONLY after user has provided a positive SOL amount and a full recipient wallet address in this conversation. Don't guess or invent details. Browser validates balance, fees and reserves then requires user wallet signature. This tool does not send.",parameters:{type:"object",properties:{amountSol:{type:"number"},recipient:{type:"string"},minimumBalanceSol:{type:"number"},explanation:{type:"string"}},required:["amountSol","recipient","minimumBalanceSol","explanation"]}}}
 ];
 async function rpcBalance(wallet){
@@ -21,7 +22,7 @@ async function rpcBalance(wallet){
 async function callModel(messages,auth){
  const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),19000);
  try{
-  const payload={model:auth.model,messages,tools,tool_choice:"auto",temperature:0.2,max_tokens:750};
+  const payload={model:auth.model,messages,tools,tool_choice:"auto",temperature:0.1,max_tokens:1800};
   if(auth.deepseek)payload.thinking={type:"disabled"};
   const r=await fetch(auth.endpoint,{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+auth.token},body:JSON.stringify(payload),signal:ctrl.signal});
   if(!r.ok)throw Error("Model HTTP "+r.status);
@@ -37,7 +38,8 @@ const system=[
  "Ask one concise, relevant question when information is missing. Do not insist on command syntax. Example: if the user says 'send 2 sols' without a recipient, ask for the recipient address. When a later message contains just an address, use the amount from the preceding conversation.",
  "You can only inspect a wallet or PROPOSE a transfer. Never sign, submit, claim a transfer happened, invent balances or ask for seed phrases.",
  "To transfer, collect a positive SOL amount and full Solana recipient address. Minimum balance to keep is optional and defaults to zero. Preserve any prior minimum constraint across turns, never silently lower it.",
- "If any information is missing, ask for it; DO NOT call propose_transfer yet. The recipient MUST be provided by the user somewhere in the conversation, not invented. Once complete, call propose_transfer.",
+ "For requests to send SOL to MULTIPLE recipients, use propose_bulk_transfer, never propose_transfer. Collect each full wallet address and corresponding positive amount. If the user asks for many transfers but only gives some addresses or amounts, ask for the missing entries. Limit to 10 recipients in a single atomic transaction. Do not invent addresses or amounts. Preserve the minimum balance across conversation. Do not call a transfer tool until all required details are present. The human reviews the complete list and the TOTAL before signing.",
+ "If any information is missing, ask for it; DO NOT call a transfer tool yet. The recipient MUST be provided by the user somewhere in the conversation, not invented. Once complete, call the appropriate proposal tool.",
  "When reporting a connected wallet balance, call inspect_wallet. If the wallet is unconnected, ask the user to connect. You can also explain this app, Devnet, and fees.",
  "Plain English only. No marketing, fake assurances, long introductions or Markdown. When not calling tools, return a natural short assistant message, not a JSON response."
 ].join(" ");
@@ -85,6 +87,29 @@ module.exports=async function handler(req,res){
       const balanceSol=await rpcBalance(wallet);observedBalance=balanceSol;
       value={network:"devnet",wallet,balanceSol};steps.push("Solana RPC: balance "+balanceSol.toFixed(6)+" SOL");
      }catch(e){value={error:"Devnet RPC unavailable"};steps.push("Solana RPC: balance lookup failed");}
+    }else if(call.function.name==="propose_bulk_transfer"){
+     const entries=Array.isArray(args.transfers)?args.transfers:[];
+     const min=numeric(args.minimumBalanceSol)??0;
+     let normalized=[],seen=new Set(),error=null;
+     if(entries.length<2||entries.length>10)error="Bulk transfer needs 2–10 recipients with amounts.";
+     if(!Number.isFinite(min)||min<0)error="Invalid minimum balance.";
+     for(const entry of entries){
+      const recipient=typeof entry?.recipient==="string"?entry.recipient.trim():"";
+      const amountSol=numeric(entry?.amountSol);
+      if(!isWallet(recipient)||!userWords.includes(recipient)||amountSol===null||amountSol<=0||!Number.isSafeInteger(Math.round(amountSol*1e9))){
+       error="One or more recipients or amounts are missing or invalid. Ask for the missing details.";break;
+      }
+      if(seen.has(recipient)){error="Duplicate recipient address. Ask user to clarify or consolidate amounts.";break;}
+      seen.add(recipient);normalized.push({recipient,amountSol});
+     }
+     const total=normalized.reduce((sum,t)=>sum+t.amountSol,0);
+     if(!Number.isFinite(total)||!Number.isSafeInteger(Math.round(total*1e9)))error="Total amount is invalid.";
+     if(error){value={error};steps.push("Bulk proposal rejected: "+error);}
+     else{
+      proposal={type:"bulk",transfers:normalized,totalSol:total,minimumBalanceSol:min,explanation:safe(args.explanation,260)};
+      value={proposalOnly:true,count:normalized.length,totalSol:total,message:"Awaiting full user review and wallet signature; no transfer sent."};
+      steps.push("Agent tool: prepared "+normalized.length+" transfers totaling "+total+" SOL in one proposed transaction. Nothing sent.");
+     }
     }else if(call.function.name==="propose_transfer"){
      const amt=numeric(args.amountSol),min=numeric(args.minimumBalanceSol)??0,recipient=typeof args.recipient==="string"?args.recipient.trim():"";
      if(amt===null||amt<=0||min<0||!isWallet(recipient)||!userWords.includes(recipient)){
@@ -98,7 +123,7 @@ module.exports=async function handler(req,res){
     }else value={error:"Unknown tool"};
     messages.push({role:"tool",tool_call_id:call.id,content:JSON.stringify(value)});
    }
-   if(proposal)return okay(res,{intent:"transfer",message:"I have the transfer details. Review the amount, recipient and balance before opening your wallet.",...proposal,steps});
+   if(proposal)return okay(res,{intent:proposal.type==="bulk"?"bulk_transfer":"transfer",message:proposal.type==="bulk"?"I have the list of recipients. Review every address, amount, total and fee before signing once.":"I have the transfer details. Review the amount, recipient and balance before opening your wallet.",...proposal,steps});
    if(observedBalance!==null)return okay(res,{intent:"balance",message:"Your Devnet wallet has "+observedBalance.toFixed(6)+" SOL.",balanceSol:observedBalance,steps});
   }
   return okay(res,{intent:"reply",message:"Could you clarify what you'd like me to do?",steps});
