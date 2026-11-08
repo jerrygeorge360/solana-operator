@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#292d2a">
-  <meta name="description" content="A policy-aware Solana Devnet agent that turns natural-language instructions into transparent, human-approved on-chain actions.">
-  <title>Solana Operator — An agent with boundaries</title>
+  <meta name="description" content="Check a Solana Devnet balance or prepare a transfer. Nothing moves without a wallet signature.">
+  <title>Solana Operator — Check, review, send</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Inter:wght@400;500;600;650;700;800&display=swap" rel="stylesheet">
@@ -16,24 +16,24 @@
     <aside class="rail" aria-label="Primary navigation">
       <a class="brand" href="/" aria-label="Solana Operator home">
         <span class="brand-symbol" aria-hidden="true"><svg viewBox="0 0 36 36" fill="none"><path d="M8 11.5h20l-5 5H3l5-5Z" fill="currentColor"/><path d="M8 21h20l-5 5H3l5-5Z" fill="currentColor"/><path d="M13 16.3h20l-5 5H8l5-5Z" fill="currentColor" opacity=".62"/></svg></span>
-        <span class="brand-name"><strong>operator</strong><small>by Solana · Devnet</small></span>
+        <span class="brand-name"><strong>operator</strong><small>Solana Devnet · Unofficial</small></span>
       </a>
-      <div class="rail-label">YOUR WORKSPACE</div>
+      <div class="rail-label">WORKSPACE</div>
       <nav class="nav">
         <button class="nav-link selected" id="newTaskBtn" type="button" aria-current="page">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New instruction</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New request</span>
         </button>
         <button class="nav-link" id="activityNav" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h3l3 6 4-12 3 6h5"/></svg><span>Recent activity</span><span class="nav-count" id="activityCount">0</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h3l3 6 4-12 3 6h5"/></svg><span>My transfers</span><span class="nav-count" id="activityCount">0</span>
         </button>
         <button class="nav-link" id="guideNav" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4m0 3.5h.01"/></svg><span>How it works</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4m0 3.5h.01"/></svg><span>Before you send</span>
         </button>
       </nav>
       <div class="rail-space"></div>
       <div class="rail-note">
-        <span class="rail-note-dot" aria-hidden="true"></span><span class="rail-note-label">TRUST IS THE FEATURE</span>
-        <p>The agent can propose a transaction. Only your wallet can approve it.</p>
+        <span class="rail-note-dot" aria-hidden="true"></span><span class="rail-note-label">WALLET APPROVAL</span>
+        <p>The app prepares a transfer. Your wallet signs it.</p>
       </div>
       <div class="rail-bottom"><span class="network-dot"></span> SOLANA DEVNET <span class="rail-bottom-line"></span><span class="mini-version">MVP / 01</span></div>
     </aside>
@@ -42,6 +42,7 @@
       <header class="topbar">
         <div class="crumb"><span class="mobile-mark" aria-hidden="true">≋</span><span class="crumb-parent">Workspace</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 6 7-6 7"/></svg><strong>Operator</strong></div>
         <div class="top-actions">
+          <button class="mobile-new-request" id="mobileNewTaskBtn" type="button" aria-label="Start a new request" title="New request">+ New</button>
           <span class="model-chip" id="modelChip"><span class="model-dot"></span><span id="modelLabel">Checking agent…</span></span>
           <button class="wallet-btn" id="connectBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 14h2"/></svg><span id="connectLabel">Connect wallet</span></button>
         </div>
@@ -50,13 +51,13 @@
       <main class="canvas">
         <div class="page-width">
           <div class="intro">
-            <div class="eyebrow"><span class="eyebrow-bar"></span> AN ASSISTANT WITH BOUNDARIES <span class="intro-num">/ 01</span></div>
-            <h1>Say what you need.<br><em>Know what happens next.</em></h1>
-            <p>Tell your agent what you want to do on Solana. It can inspect your wallet and prepare the next step, but you stay in control of every transaction.</p>
+            <div class="eyebrow"><span class="eyebrow-bar"></span> SOLANA DEVNET <span class="intro-num">/ 01</span></div>
+            <h1>Check your balance.<br><em>Plan a transfer.</em></h1>
+            <p>Ask about your Devnet balance or describe a transfer. See the amount, fee and balance left before you decide to sign.</p>
           </div>
 
           <section class="journey" aria-label="Transaction process">
-            <div class="journey-step active" id="stageDescribe"><span class="stage-number">01</span><span class="stage-text">Describe</span></div>
+            <div class="journey-step active" id="stageDescribe"><span class="stage-number">01</span><span class="stage-text">Ask</span></div>
             <div class="journey-rule" aria-hidden="true"></div>
             <div class="journey-step" id="stageReview"><span class="stage-number">02</span><span class="stage-text">Review</span></div>
             <div class="journey-rule" aria-hidden="true"></div>
@@ -68,48 +69,48 @@
           <div class="content-grid">
             <div class="primary">
               <section class="composer panel" id="composePanel" aria-labelledby="composeHeading">
-                <div class="panel-topline"><span class="section-count">01 / INSTRUCTION</span><span class="subtle-status"><span class="soft-dot"></span> New task</span></div>
-                <div class="composer-head"><h2 id="composeHeading">What would you like to do?</h2><p>Use natural language. Start with a balance check or describe a Devnet transfer.</p></div>
+                <div class="panel-topline"><span class="section-count">01 / YOUR REQUEST</span><span class="subtle-status"><span class="soft-dot"></span> New task</span></div>
+                <div class="composer-head"><h2 id="composeHeading">What do you need to do?</h2><p>Ask to check your balance or send test SOL to another wallet.</p></div>
                 <form id="instructionForm" novalidate>
-                  <label class="sr-only" for="command">Instruction for Solana Operator</label>
-                  <textarea id="command" name="instruction" rows="4" maxlength="1200" spellcheck="true" placeholder="Check my wallet balance and tell me how much SOL I have…"></textarea>
-                  <div class="compose-bottom"><span class="compose-hint">Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to run</span><button id="analyzeBtn" class="button primary-button" type="submit"><span id="analyzeText">Run instruction</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button></div>
+                  <label class="sr-only" for="command">Your request</label>
+                  <textarea id="command" name="instruction" rows="4" maxlength="1200" spellcheck="true" placeholder="How much SOL is in my wallet?"></textarea>
+                  <div class="compose-bottom"><span class="compose-hint">Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to run</span><button id="analyzeBtn" class="button primary-button" type="submit"><span id="analyzeText">Check request</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button></div>
                 </form>
-                <div class="samples"><span class="sample-label">TRY SOMETHING</span><button id="balancePrompt" type="button" class="sample-btn">Check my balance <span>↗</span></button><button id="transferPrompt" type="button" class="sample-btn">Send with a spending limit <span>↗</span></button></div>
-                <p class="inline-message" id="message" role="status" aria-live="polite">Devnet is a test network. You can explore safely with test SOL.</p>
+                <div class="samples"><span class="sample-label">EXAMPLES</span><button id="balancePrompt" type="button" class="sample-btn">Check my balance <span>↗</span></button><button id="transferPrompt" type="button" class="sample-btn">Send SOL with a limit <span>↗</span></button></div>
+                <p class="inline-message" id="message" role="status" aria-live="polite">This uses Devnet test SOL, not real funds.</p>
               </section>
 
               <section id="responsePanel" class="panel response-panel" aria-labelledby="responseTitle" hidden>
-                <div class="panel-topline"><span class="section-count">02 / AGENT RESPONSE</span><span class="agent-source" id="agentSource">Agent</span></div>
-                <h2 id="responseTitle">Here's the plan.</h2>
-                <div class="asked"><span class="asked-label">YOUR REQUEST</span><p id="userRequest"></p></div>
-                <div class="agent-summary"><span class="agent-initial" aria-hidden="true">◎</span><div><span class="asked-label">OPERATOR</span><p id="agentExplanation"></p></div></div>
+                <div class="panel-topline"><span class="section-count">02 / RESULT</span><span class="agent-source" id="agentSource">Agent</span></div>
+                <h2 id="responseTitle">Your result</h2>
+                <div class="asked"><span class="asked-label">YOU ASKED</span><p id="userRequest"></p></div>
+                <div class="agent-summary"><span class="agent-initial" aria-hidden="true">◎</span><div><span class="asked-label">RESPONSE</span><p id="agentExplanation"></p></div></div>
                 <div id="balanceReadout" class="balance-readout" hidden><div><span class="detail-label">YOUR DEVNET BALANCE</span><strong id="observedBalance">—</strong></div><span class="balance-unit">SOL</span></div>
-                <details class="trace-details" id="traceDetails"><summary><span>View execution trace</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><ol id="traceList" class="trace-list"></ol></details>
+                <details class="trace-details" id="traceDetails"><summary><span>See what was checked</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><ol id="traceList" class="trace-list"></ol></details>
               </section>
 
               <section id="reviewPanel" class="panel review-panel" aria-labelledby="reviewHeading" hidden>
-                <div class="panel-topline"><span class="section-count">03 / REVIEW & APPROVAL</span><span class="review-state" id="policyBadge">Checking…</span></div>
-                <h2 id="reviewHeading">Review before you sign.</h2>
-                <p class="body-muted">This is a proposal, not an executed transaction. Check every detail.</p>
-                <div class="transfer-summary"><div class="transfer-amount"><span class="detail-label">YOU ARE SENDING</span><div class="amount-line"><strong id="transferAmount">—</strong><span>SOL</span></div><small>Solana Devnet · Test tokens</small></div><div class="recipient-area"><span class="detail-label">TO WALLET ADDRESS</span><div class="address-detail" id="recipientAddress">—</div></div></div>
-                <div class="figures"><div><span>Current balance</span><strong id="figureBalance">—</strong></div><div><span>Network fee (estimated)</span><strong id="figureFee">—</strong></div><div><span>Minimum to keep</span><strong id="figureMinimum">—</strong></div><div class="final-figure"><span>Estimated remaining</span><strong id="figureRemaining">—</strong></div></div>
-                <div class="policy-message" id="policyMessage" role="status" aria-live="polite">Checking the requested spending policy.</div>
-                <div class="review-actions"><button type="button" class="button primary-button sign-btn" id="approveBtn" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 6v6c0 5 3.7 8.5 8 10 4.3-1.5 8-5 8-10V6l-8-4Zm-3 10 2 2 4-4"/></svg> Approve in wallet</button><span>Your wallet will ask you to sign. The agent cannot sign for you.</span></div>
+                <div class="panel-topline"><span class="section-count">03 / TRANSFER REVIEW</span><span class="review-state" id="policyBadge">Checking…</span></div>
+                <h2 id="reviewHeading">Check the transfer.</h2>
+                <p class="body-muted">Nothing has been sent. Confirm the amount and recipient before continuing.</p>
+                <div class="transfer-summary"><div class="transfer-amount"><span class="detail-label">AMOUNT</span><div class="amount-line"><strong id="transferAmount">—</strong><span>SOL</span></div><small>Solana Devnet · Test tokens</small></div><div class="recipient-area"><span class="detail-label">RECIPIENT</span><div class="address-detail" id="recipientAddress">—</div></div></div>
+                <div class="figures"><div><span>Current balance</span><strong id="figureBalance">—</strong></div><div><span>Network fee (estimated)</span><strong id="figureFee">—</strong></div><div><span>Keep at least</span><strong id="figureMinimum">—</strong></div><div class="final-figure"><span>Estimated remaining</span><strong id="figureRemaining">—</strong></div></div>
+                <div class="policy-message" id="policyMessage" role="status" aria-live="polite">Checking balance and fees…</div>
+                <div class="review-actions"><button type="button" class="button primary-button sign-btn" id="approveBtn" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 6v6c0 5 3.7 8.5 8 10 4.3-1.5 8-5 8-10V6l-8-4Zm-3 10 2 2 4-4"/></svg> Continue to wallet</button><span>Your wallet will ask you to review and sign.</span></div>
               </section>
 
               <section id="receiptPanel" class="panel receipt-panel" aria-labelledby="receiptHeading" hidden>
-                <div class="panel-topline"><span class="section-count">04 / VERIFIED</span><span class="verified-tag">Confirmed on Devnet</span></div>
+                <div class="panel-topline"><span class="section-count">04 / RECEIPT</span><span class="verified-tag">Confirmed on Devnet</span></div>
                 <div class="receipt-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></div>
-                <h2 id="receiptHeading">The chain confirms it.</h2><p>Transaction confirmed on Solana Devnet. Verify independently using the on-chain receipt.</p>
-                <div class="receipt-signature"><span class="detail-label">TRANSACTION SIGNATURE</span><code id="receiptSignature"></code></div>
+                <h2 id="receiptHeading">Transfer confirmed.</h2><p>Your Devnet transfer is confirmed. You can check the transaction yourself.</p>
+                <div class="receipt-signature"><span class="detail-label">TRANSACTION ID</span><code id="receiptSignature"></code></div>
                 <a id="receiptLink" class="button outline-button" href="#" target="_blank" rel="noopener noreferrer">View on Solana Explorer <span aria-hidden="true">↗</span></a>
               </section>
             </div>
 
             <aside class="context" aria-label="Wallet context and help">
               <section class="context-block wallet-context" id="walletContext">
-                <div class="context-title"><span class="context-kicker">CONNECTED ACCOUNT</span><span class="live-dot"></span></div>
+                <div class="context-title"><span class="context-kicker">WALLET</span><span class="live-dot"></span></div>
                 <h3>Your wallet</h3>
                 <div class="wallet-balance" id="walletBalance">— <span>SOL</span></div>
                 <div class="wallet-address" id="walletAddress">No wallet connected</div>
@@ -118,20 +119,20 @@
               </section>
 
               <section class="context-block guide-context" id="guidePanel">
-                <div class="context-title"><span class="context-kicker">GOOD TO KNOW</span><span class="context-number">02</span></div>
-                <h3>You keep the final say.</h3>
-                <p>Every transfer goes through a balance check, network-fee estimate and your minimum-balance rule. Only your wallet can sign.</p>
-                <div class="guide-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 7v5c0 5 3.5 8.4 9 10 5.5-1.6 9-5 9-10V7l-9-4Z"/></svg><span>Devnet only — no real funds. <a href="https://faucet.solana.com/" target="_blank" rel="noopener noreferrer">Get test SOL ↗</a></span></div>
+                <div class="context-title"><span class="context-kicker">BEFORE YOU SEND</span><span class="context-number">02</span></div>
+                <h3>Nothing sends automatically.</h3>
+                <p>We check your balance, estimate the fee and respect the amount you want to keep. You approve the transfer in your wallet.</p>
+                <div class="guide-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 7v5c0 5 3.5 8.4 9 10 5.5-1.6 9-5 9-10V7l-9-4Z"/></svg><span>Devnet test SOL has no monetary value. <a href="https://faucet.solana.com/" target="_blank" rel="noopener noreferrer">Get test SOL ↗</a></span></div>
               </section>
 
               <section class="context-block activity-context" id="activityPanel">
-                <div class="context-title"><span class="context-kicker">RECENT ACTIVITY</span><span class="context-number">03</span></div>
-                <h3>On-chain history</h3><div id="activityList" class="activity-list"><p class="no-activity">Confirmed Devnet transfers will appear here, in this browser.</p></div>
+                <div class="context-title"><span class="context-kicker">ON THIS DEVICE</span><span class="context-number">03</span></div>
+                <h3>Your transfers</h3><div id="activityList" class="activity-list"><p class="no-activity">Confirmed transfers made in this browser appear here.</p></div>
               </section>
             </aside>
           </div>
 
-          <footer class="page-footer"><span>Solana Operator / Experimental Devnet agent</span><span>No custody. No auto-signing. No real SOL.</span></footer>
+          <footer class="page-footer"><span>Solana Operator · Devnet</span><span>Test SOL only · Wallet approval required</span></footer>
         </div>
       </main>
     </div>

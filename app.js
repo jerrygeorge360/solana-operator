@@ -23,9 +23,9 @@ const stageNames=["Describe","Review","Approve","Verify"];
 function status(message,tone=""){D.message.textContent=message;D.message.className="inline-message"+(tone?" "+tone:"")}
 function stage(active,completed=[]){stageNames.forEach((name,i)=>{const node=$("stage"+name),n=i+1;node.classList.toggle("active",active===n);node.classList.toggle("complete",completed.includes(n))})}
 function trace(text){const li=document.createElement("li");li.textContent=String(text).slice(0,500);D.trace.appendChild(li)}
-function setBusy(value){busy=value;D.run.disabled=value;D.runLabel.textContent=value?"Working on it…":"Run instruction"}
+function setBusy(value){busy=value;D.run.disabled=value;D.runLabel.textContent=value?"Checking…":"Check request"}
 function resetReview(){
- pending=null;D.approve.disabled=true;D.approve.textContent="Approve in wallet";
+ pending=null;D.approve.disabled=true;D.approve.textContent="Continue to wallet";
  D.response.hidden=true;D.review.hidden=true;D.receipt.hidden=true;D.readout.hidden=true;
  D.trace.replaceChildren();$("traceDetails").open=false;stage(1);
 }
@@ -42,7 +42,7 @@ function showWallet(amount){
 async function refreshBalance(quiet=false){
  if(!publicKey)throw Error("Connect your wallet first.");
  const value=await conn().getBalance(publicKey);showWallet(value);
- if(!quiet)status("Live balance updated from Solana Devnet.","success");
+ if(!quiet)status("Balance updated from Devnet.","success");
  return value;
 }
 async function connectWallet(silent=false){
@@ -55,7 +55,7 @@ async function connectWallet(silent=false){
   D.address.textContent=publicKey.toBase58();
   D.contextConnect.hidden=true;D.refresh.hidden=false;
   await refreshBalance(true);
-  if(!silent)status("Wallet connected. Reading Solana Devnet.","success");
+  if(!silent)status("Wallet connected. Balance loaded.","success");
   return true;
  }catch(error){status(error.message||"Unable to connect a wallet.","error");return false}
 }
@@ -64,10 +64,10 @@ function parseFallback(text){
  const recipient=text.match(/\bto\s+([1-9A-HJ-NP-Za-km-z]{32,44})\b/);
  const reserve=text.match(/(?:keep|retain|leave|minimum|at least)\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*sol\b/i);
  return {
-  mode:"fallback",intent:amount?"transfer":"balance",amountSol:amount?Number(amount[1]):null,
+  mode:"fallback",intent:amount?"transfer":(/\bbalance\b|\bhow much\b|\bwallet\b|\bfunds\b/i.test(text)?"balance":"unknown"),amountSol:amount?Number(amount[1]):null,
   recipient:recipient?recipient[1]:null,minimumBalanceSol:reserve?Number(reserve[1]):0,
-  explanation:amount?"I recognized a transfer request, but the AI provider did not respond. This is a rule-based proposal, not an AI action. Review the details before proceeding.":"I can inspect your live Devnet wallet balance. The AI service was unavailable, so a local parser handled the request.",
-  steps:["DeepSeek did not return an agent result. Local parsing was used; no transaction was sent."]
+  explanation:amount?"DeepSeek was unavailable. A simple rule matched the transfer request; no money has been sent.":"DeepSeek was unavailable. The request will be handled without an AI model.",
+  steps:["DeepSeek was unavailable. Used the built-in text parser. No transfer was sent."]
  };
 }
 async function agent(text){
@@ -82,11 +82,18 @@ async function agent(text){
 }
 function renderAgent(result,instruction){
  D.response.hidden=false;D.userRequest.textContent=instruction;
- D.explanation.textContent=String(result.explanation||"This is the proposed next step.");
- const AI=result.mode==="ai";D.source.textContent=AI?"DeepSeek · tool planner":"Rule-based fallback";
- D.model.textContent=AI?"DeepSeek · active":"Rule-based fallback";
+ D.explanation.textContent = result.mode==="fallback"
+  ? "DeepSeek did not respond, so this request was read by the built-in parser. Check the details carefully."
+  : result.intent==="transfer"
+    ? "You asked to send "+String(result.amountSol??"an amount of")+" SOL. I’ll check the recipient, fee and balance left before you sign."
+    : result.intent==="balance"
+      ? "I’ll read your wallet balance from Solana Devnet."
+      : "Try asking for your balance or a specific SOL transfer.";
+ // Keep model prose out of the UI. Show only validated action details and recorded tool steps.
+ const AI=result.mode==="ai";D.source.textContent=AI?"DeepSeek":"Built-in parser";
+ D.model.textContent=AI?"DeepSeek responded":"Built-in parser used";
  (Array.isArray(result.steps)?result.steps:[]).forEach(trace);
- trace("Network restricted to Solana Devnet.");
+ trace("Network: Solana Devnet.");
  D.response.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 function requestedAmount(text){const r=text.match(/(?:send|transfer|pay)\s+(\d+(?:\.\d+)?)\s*sol\b/i);return r?Number(r[1]):null}
@@ -118,13 +125,14 @@ async function makeTransfer(result,text){
  trace("Verified recipient and amount against the user's original instruction.");
  trace("Enforced the stronger of the user-specified and agent-proposed minimum balance.");
  if(remaining<minLamports||remaining<0){
-  pending=null;showPolicy(false,"This action would violate your remaining-balance rule after network fees. No wallet signature is possible.");
-  trace("Policy blocked the transfer.");stage(2,[1]);status("This transfer is blocked by your minimum-balance rule.","error");
+  pending=null;showPolicy(false,"Sending this amount would leave less SOL than you asked to keep. No transfer will be sent.");
+  trace("Balance limit not met. Signing disabled.");stage(2,[1]);status("You need to lower the amount or change your limit.","error");
  }else{
   pending={tx,lamports,reserve:minLamports,amount};
-  showPolicy(true,"The transfer meets your spending limit. Only your wallet can approve and sign it.");
-  trace("Policy passed; the agent cannot sign for the user.");
-  stage(3,[1,2]);status("Review the transaction and approve it in your wallet.","success");
+  showPolicy(true,"The amount fits your limit, including the estimated fee. Review the details before signing.");
+  if(result.mode==="ai")D.explanation.textContent="The amount and recipient match your request. Review the estimated fee and balance left below.";
+  trace("Checks passed. Only your wallet can sign.");
+  stage(3,[1,2]);status("Review the amount and recipient, then continue to your wallet.","success");
  }
  D.review.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
@@ -132,20 +140,21 @@ async function analyze(event){
  if(event)event.preventDefault();
  if(busy)return;const text=D.input.value.trim();
  if(!text){status("Write an instruction first.","error");D.input.focus();return}
- resetReview();setBusy(true);status("Understanding your instruction…");
+ resetReview();setBusy(true);status("Checking your request…");
  try{
-  if(!publicKey){const connected=await connectWallet(true);if(!connected)throw Error("Connect a Devnet wallet to access live blockchain state.")}
+  if(!publicKey){status("Connect your wallet first. Your request will stay here.","error");D.connect.focus();return;}
   const result=await agent(text);renderAgent(result,text);
   if(result.intent==="balance"){
    const balance=await refreshBalance(true);
    D.readout.hidden=false;D.observed.textContent=fmt(balance/SDK().LAMPORTS_PER_SOL,6);
-   trace("Read-only result: no signing or blockchain transaction required.");
-   stage(2,[1]);status("Balance read successfully from Devnet.","success");
+   D.explanation.textContent="This balance was read from Solana Devnet. No transaction was created.";
+   trace("Balance read only. No transaction or signature needed.");
+   stage(2,[1]);status("Balance checked.","success");
   }else if(result.intent==="transfer"){
    await makeTransfer(result,text);
   }else{
-   stage(2,[1]);trace("No valid transaction proposal was produced.");
-   status("Ask to check your wallet balance or to send a specific amount of SOL.","error");
+   stage(2,[1]);trace("No supported transfer or balance request found.");
+   status("Try “check my balance” or “send 0.05 SOL to …”.","error");
   }
  }catch(error){
   status(error.message||"Unable to finish the task.","error");trace("Stopped: "+(error.message||"Unknown error"));
@@ -159,11 +168,11 @@ function getHistory(){
 }
 function renderHistory(){
  const items=getHistory();D.historyCount.textContent=String(items.length);D.history.replaceChildren();
- if(!items.length){const p=document.createElement("p");p.className="no-activity";p.textContent="Confirmed Devnet transfers will appear here, in this browser.";D.history.appendChild(p);return}
+ if(!items.length){const p=document.createElement("p");p.className="no-activity";p.textContent="Confirmed transfers from this browser will appear here.";D.history.appendChild(p);return}
  items.forEach(item=>{
   const row=document.createElement("div");row.className="activity-item";
   const amount=document.createElement("strong");amount.textContent=fmt(Number(item.amount),4)+" SOL sent";
-  const link=document.createElement("a");link.href="https://explorer.solana.com/tx/"+item.signature+"?cluster=devnet";link.target="_blank";link.rel="noopener noreferrer";link.textContent="Verified receipt ↗";
+  const link=document.createElement("a");link.href="https://explorer.solana.com/tx/"+item.signature+"?cluster=devnet";link.target="_blank";link.rel="noopener noreferrer";link.textContent="View on Explorer ↗";
   const time=document.createElement("time");time.dateTime=item.date;time.textContent=new Date(item.date).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
   row.append(amount,link,time);D.history.appendChild(row);
  });
@@ -175,8 +184,8 @@ function saveHistory(signature,amount){
 }
 async function approve(){
  if(busy||!pending||!provider||!publicKey)return;
- const draft=pending;pending=null;D.approve.disabled=true;D.approve.textContent="Waiting for wallet…";
- status("Rechecking wallet balance and transaction fees…");
+ const draft=pending;pending=null;setBusy(true);D.approve.disabled=true;D.approve.textContent="Open your wallet…";
+ status("Checking the balance and fee again…");
  try{
   if(provider.publicKey?.toString()!==publicKey.toBase58())throw Error("Connected wallet changed. Re-run the instruction.");
   const rpc=conn(),current=await rpc.getBalance(publicKey),block=await rpc.getLatestBlockhash("confirmed");
@@ -185,39 +194,39 @@ async function approve(){
   if(!fee||fee.value===null||current-draft.lamports-fee.value<draft.reserve)throw Error("The balance or fee changed and the policy no longer allows this transfer.");
   if(typeof provider.signTransaction!=="function")throw Error("Your wallet cannot sign a Solana transaction.");
   trace("Final balance and fee check passed.");
-  status("Approve the Devnet transaction in your wallet.");
+  status("Review and approve the transfer in your wallet.");
   const signed=await provider.signTransaction(draft.tx);
   const signature=await rpc.sendRawTransaction(signed.serialize());
   trace("Signed transaction submitted: "+signature);
-  stage(4,[1,2,3]);status("Waiting for the Solana network to confirm…");
+  stage(4,[1,2,3]);status("Transfer submitted. Checking its status on Devnet…");
   const confirmation=await rpc.confirmTransaction({signature,blockhash:block.blockhash,lastValidBlockHeight:block.lastValidBlockHeight},"confirmed");
   if(confirmation.value.err)throw Error("Solana reported a transaction failure.");
   D.receipt.hidden=false;D.signature.textContent=signature;
   D.receiptLink.href="https://explorer.solana.com/tx/"+signature+"?cluster=devnet";
   saveHistory(signature,draft.amount);trace("Solana Devnet confirmed the transfer.");
-  stage(4,[1,2,3,4]);status("Transaction confirmed. Your receipt is available.","success");
+  stage(4,[1,2,3,4]);status("Transfer confirmed. Receipt available below.","success");
   await refreshBalance(true).catch(()=>{});
   D.receipt.scrollIntoView({behavior:"smooth",block:"nearest"});
  }catch(error){
   trace("Execution stopped: "+(error.message||"Unknown wallet error"));
   status("Transaction not confirmed: "+(error.message||"Unknown wallet error"),"error");
   stage(2,[1]);
- }finally{D.approve.textContent="Approve in wallet"}
+ }finally{D.approve.textContent="Continue to wallet";setBusy(false)}
 }
 function newTask(){
- if(busy)return;D.input.value="";resetReview();status("New task ready. No transaction is pending.");D.input.focus();window.scrollTo({top:0,behavior:"smooth"})
+ if(busy)return;D.input.value="";resetReview();status("Ready for another request.");D.input.focus();window.scrollTo({top:0,behavior:"smooth"})
 }
 function sampleBalance(){
- if(busy)return;resetReview();D.input.value="Check my Solana Devnet wallet balance and tell me how much SOL I have.";D.input.focus();status("Balance check loaded. Run the instruction to continue.")
+ if(busy)return;resetReview();D.input.value="How much SOL is in my Devnet wallet?";D.input.focus();status("Balance request added. Click Check request to continue.")
 }
 function sampleTransfer(){
- if(busy)return;resetReview();D.input.value="Send 0.05 SOL to [PASTE_DEVNET_WALLET_ADDRESS] but keep at least 0.20 SOL.";D.input.focus();status("Replace the placeholder with a real recipient Devnet wallet address.","");
+ if(busy)return;resetReview();D.input.value="Send 0.05 SOL to [PASTE_DEVNET_WALLET_ADDRESS] but keep at least 0.20 SOL.";D.input.focus();status("Replace the bracketed text with the recipient’s full Devnet address.");
 }
 async function checkAgent(){
  try{
   const response=await fetch("/api/agent");if(!response.ok)throw Error("Unable to reach agent");
   const data=await response.json();
-  D.model.textContent=data.aiConfigured?(String(data.model||"").toLowerCase().includes("deepseek")?"DeepSeek · ready":"AI configured"):"Local fallback";
+  D.model.textContent=data.aiConfigured?(String(data.model||"").toLowerCase().includes("deepseek")?"DeepSeek configured":"AI configured"):"Built-in parser";
  }catch(error){D.model.textContent="Local fallback"}
 }
 D.form.addEventListener("submit",analyze);
@@ -229,6 +238,7 @@ D.approve.addEventListener("click",approve);
 $("balancePrompt").addEventListener("click",sampleBalance);
 $("transferPrompt").addEventListener("click",sampleTransfer);
 $("newTaskBtn").addEventListener("click",newTask);
+$("mobileNewTaskBtn").addEventListener("click",newTask);
 $("activityNav").addEventListener("click",()=>$("activityPanel").scrollIntoView({behavior:"smooth",block:"center"}));
 $("guideNav").addEventListener("click",()=>$("guidePanel").scrollIntoView({behavior:"smooth",block:"center"}));
 renderHistory();stage(1);checkAgent();

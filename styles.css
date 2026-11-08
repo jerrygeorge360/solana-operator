@@ -178,6 +178,8 @@ kbd{border:1px solid #d7ddd6;border-radius:4px;padding:2px 4px;font-size:10px;ba
 .receipt-signature code{font-size:11px;word-break:break-all;color:#475e4b;display:block;margin-top:9px}
 .page-footer{display:flex;justify-content:space-between;gap:12px;color:#a2aca0;border-top:1px solid #dee3db;font-size:10px;letter-spacing:.2px;padding:22px 1px;margin-top:33px}
 .is-loading #analyzeBtn{opacity:.6;cursor:progress}
+.mobile-new-request{display:none;border:1px solid #d4ddd3;background:transparent;color:var(--sage);padding:8px 10px;border-radius:8px;font-size:11px;font-weight:700;white-space:nowrap}
+.mobile-new-request:hover{background:#edf3ee}
 @media(max-width:1200px){
  .shell{grid-template-columns:214px minmax(0,1fr)}
  .rail{padding-left:13px;padding-right:13px}
@@ -200,6 +202,9 @@ kbd{border:1px solid #d7ddd6;border-radius:4px;padding:2px 4px;font-size:10px;ba
  .page-footer{margin-top:28px}
 }
 @media(max-width:700px){
+ .mobile-new-request{display:inline-flex;align-items:center;justify-content:center}
+ .top-actions{gap:9px}
+
  .shell{display:block}
  .rail{display:none}
  .topbar{height:65px;padding:0 18px}
