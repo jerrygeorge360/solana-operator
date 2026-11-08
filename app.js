@@ -80,7 +80,7 @@ async function connectWallet(silent=false){
 function addMessage(role,text){
  D.response.hidden=false;
  const row=document.createElement("div");row.className="chat-turn "+role;
- const label=document.createElement("span");label.className="chat-role";label.textContent=role==="user"?"You":"DeepSeek";
+ const label=document.createElement("span");label.className="chat-role";label.textContent=role==="user"?"You":"Operator";
  const body=document.createElement("p");body.textContent=String(text||"");
  row.append(label,body);D.thread.appendChild(row);row.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
@@ -89,7 +89,7 @@ async function agent(text,history){
  try{
   const res=await fetch("/api/agent",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({instruction:text,wallet:publicKey?.toBase58()||null,history:history.slice(-12)}),signal:ctrl.signal});
   const result=await res.json().catch(()=>null);
-  if(!res.ok)throw Error(result?.error||"DeepSeek is unavailable.");
+  if(!res.ok)throw Error(result?.error||"The agent is unavailable.");
   if(!result||!["reply","balance","transfer","bulk_transfer"].includes(result.intent))throw Error("Agent response is invalid.");
   return result;
  }finally{clearTimeout(timer)}
@@ -97,7 +97,7 @@ async function agent(text,history){
 function renderAgent(result){
  const answer=String(result.message||"Could you clarify?");
  addMessage("assistant",answer);dialog.push({role:"assistant",content:answer});
- D.source.textContent="DeepSeek";D.model.textContent="DeepSeek · active";
+ D.source.textContent="Operator";D.model.textContent="AI agent · active";
  (Array.isArray(result.steps)?result.steps:[]).forEach(trace);
 }
 async function makeTransfer(result,text){
@@ -193,7 +193,7 @@ async function analyze(event){
  if(submittedSignature){status("Check your previously submitted transfer before starting another.","error");$("progressPanel").scrollIntoView({behavior:"smooth",block:"nearest"});return}
  resetReview(true);
  const past=dialog.slice(-12);dialog.push({role:"user",content:text});addMessage("user",text);
- D.input.value="";setBusy(true);status("DeepSeek is reading your message…");
+ D.input.value="";setBusy(true);status("Checking your request…");
  let agentResponded=false;
  try{
   const result=await agent(text,past);renderAgent(result);agentResponded=true;
@@ -382,14 +382,14 @@ function sampleBalance(){
  if(busy)return;resetReview();D.input.value="How much SOL do I have?";D.input.focus();status("Message ready to send.")
 }
 function sampleTransfer(){
- if(busy)return;resetReview();D.input.value="I want to send 0.05 SOL, but keep at least 0.20 SOL in my wallet.";D.input.focus();status("DeepSeek will ask for any missing details.");
+ if(busy)return;resetReview();D.input.value="I want to send 0.05 SOL, but keep at least 0.20 SOL in my wallet.";D.input.focus();status("The agent can ask for any missing details.");
 }
 async function checkAgent(){
  try{
   const response=await fetch("/api/agent");if(!response.ok)throw Error("Unable to reach agent");
   const data=await response.json();
-  D.model.textContent=data.aiConfigured?(String(data.model||"").toLowerCase().includes("deepseek")?"DeepSeek configured":"AI configured"):"Built-in parser";
- }catch(error){D.model.textContent="Local fallback"}
+  D.model.textContent=data.aiConfigured?"AI agent ready":"AI agent unavailable";
+ }catch(error){D.model.textContent="AI agent unavailable"}
 }
 $("followupForm").addEventListener("submit",event=>{
  event.preventDefault();if(busy)return;
@@ -408,7 +408,7 @@ D.refresh.addEventListener("click",()=>refreshBalance().catch(error=>status(erro
 D.approve.addEventListener("click",approve);
 $("balancePrompt").addEventListener("click",sampleBalance);
 $("transferPrompt").addEventListener("click",sampleTransfer);
-$("bulkPrompt").addEventListener("click",()=>{if(busy)return;resetReview();D.input.value="I need to send SOL to several wallets. Can you help me set up a bulk transfer?";D.input.focus();status("DeepSeek will collect recipients, amounts, and any minimum balance.");});
+$("bulkPrompt").addEventListener("click",()=>{if(busy)return;resetReview();D.input.value="I need to send SOL to several wallets. Can you help me set up a bulk transfer?";D.input.focus();status("The agent will collect recipients, amounts, and any minimum balance.");});
 $("newTaskBtn").addEventListener("click",newTask);
 $("mobileNewTaskBtn").addEventListener("click",newTask);
 $("activityNav").addEventListener("click",()=>$("activityPanel").scrollIntoView({behavior:"smooth",block:"center"}));
