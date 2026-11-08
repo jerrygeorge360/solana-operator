@@ -15,6 +15,8 @@ const D={
  history:$("activityList"),historyCount:$("activityCount")
 };
 let provider=null,publicKey=null,balanceLamports=null,pending=null,busy=false;
+let submittedSignature=null,submittedAmount=null;
+const PENDING_STORAGE="operator:pending-devnet-tx:v1";
 const SDK=()=>{if(!window.solanaWeb3)throw Error("Solana library failed to load. Reload the page.");return window.solanaWeb3};
 const conn=()=>new (SDK().Connection)(RPC,"confirmed");
 const fmt=(n,d=4)=>Number.isFinite(n)?new Intl.NumberFormat("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}).format(n):"—";
@@ -22,7 +24,12 @@ const short=s=>s?s.slice(0,5)+"…"+s.slice(-5):"—";
 const stageNames=["Describe","Review","Approve","Verify"];
 function status(message,tone=""){D.message.textContent=message;D.message.className="inline-message"+(tone?" "+tone:"")}
 function stage(active,completed=[]){stageNames.forEach((name,i)=>{const node=$("stage"+name),n=i+1;node.classList.toggle("active",active===n);node.classList.toggle("complete",completed.includes(n))})}
-function trace(text){const li=document.createElement("li");li.textContent=String(text).slice(0,500);D.trace.appendChild(li)}
+function trace(text){
+ const message=String(text).slice(0,500);
+ const li=document.createElement("li");li.textContent=message;
+ li.dataset.type=/^Tool|^DeepSeek|agent|planner/i.test(message)?"agent":/RPC|balance read|Devnet|Network:|network fee/i.test(message)?"rpc":/wallet|signed|signature/i.test(message)?"wallet":/policy|limit|reserve|blocked|checks passed/i.test(message)?"policy":/fallback|parser/i.test(message)?"fallback":"status";
+ D.trace.appendChild(li);
+}
 function setBusy(value){busy=value;D.run.disabled=value;D.runLabel.textContent=value?"Checking…":"Check request"}
 function resetReview(){
  pending=null;D.approve.disabled=true;D.approve.textContent="Continue to wallet";
@@ -48,7 +55,16 @@ async function refreshBalance(quiet=false){
 async function connectWallet(silent=false){
  try{
   provider=window.phantom?.solana||window.solana||null;
-  if(!provider)throw Error("Install a Solana wallet such as Phantom, then reload the page.");
+  if(!provider){
+   const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+   if(mobile){
+     const guide=$("mobileWalletHelp");guide.hidden=false;
+     const currentUrl=window.location.origin+window.location.pathname;
+     $("openPhantomLink").href="https://phantom.app/ul/browse/"+encodeURIComponent(currentUrl)+"?ref="+encodeURIComponent(window.location.origin);
+     throw Error("Open this page in Phantom's in-app browser to connect your wallet.");
+   }
+   throw Error("Install a Solana wallet such as Phantom, then reload this page.");
+  }
   const answer=await provider.connect();
   publicKey=new (SDK().PublicKey)(answer.publicKey.toString());
   D.connectLabel.textContent=short(publicKey.toBase58());
@@ -182,9 +198,101 @@ function saveHistory(signature,amount){
  catch(error){}
  renderHistory();
 }
+// Transaction evidence stays visible if confirmation is delayed or the page reloads.
+function progress(phase,message,signature){
+ const phases=["validated","wallet","submitted","confirmed"];
+ const index=phases.indexOf(phase);
+ const current=index<0?(phase==="unknown"?2:1):index;
+ $("progressPanel").hidden=false;
+ const ids=["pValidate","pWallet","pSubmitted","pConfirmed"];
+ ids.forEach((id,i)=>{
+  const node=$(id);node.className="";
+  if(phase==="confirmed"||i<current)node.classList.add("complete");
+  else if(i===current)node.classList.add(phase==="failed"?"failed":"current");
+ });
+ const names={validated:"Checked",wallet:"Awaiting signature",submitted:"Submitted",unknown:"Status unknown",confirmed:"Confirmed",failed:"Stopped"};
+ $("progressBadge").textContent=names[phase]||"Checking";
+ $("progressMessage").textContent=message;
+ if(signature){
+  submittedSignature=signature;
+  $("pendingExplorer").href="https://explorer.solana.com/tx/"+signature+"?cluster=devnet";
+  $("pendingExplorer").hidden=false;
+  $("checkSignatureBtn").hidden=phase==="confirmed";
+ } else {
+  $("pendingExplorer").hidden=!submittedSignature;
+  $("checkSignatureBtn").hidden=!submittedSignature;
+ }
+}
+function persistSubmitted(signature,amount){
+ submittedSignature=signature;submittedAmount=amount;
+ try{localStorage.setItem(PENDING_STORAGE,JSON.stringify({signature,amount,at:Date.now()}))}catch(_){}
+}
+function clearSubmitted(){
+ try{localStorage.removeItem(PENDING_STORAGE)}catch(_){}
+ submittedSignature=null;submittedAmount=null;
+}
+function confirmedReceipt(signature,amount){
+ $("progressPanel").hidden=false;progress("confirmed","Confirmed on Solana Devnet.",signature);
+ D.receipt.hidden=false;D.signature.textContent=signature;
+ D.receiptLink.href="https://explorer.solana.com/tx/"+signature+"?cluster=devnet";
+ if(Number.isFinite(amount))saveHistory(signature,amount);
+ clearSubmitted();
+ stage(4,[1,2,3,4]);
+ status("Transfer confirmed. Receipt available below.","success");
+}
+async function checkSubmittedStatus(){
+ if(!submittedSignature)return;
+ const sig=submittedSignature;
+ $("checkSignatureBtn").disabled=true;
+ try{
+  const response=await conn().getSignatureStatuses([sig],{searchTransactionHistory:true});
+  const value=response?.value?.[0];
+  if(!value){progress("unknown","No confirmation found yet. Check the Explorer link before trying another transfer.",sig);return}
+  if(value.err){progress("failed","Solana reported a transaction error. See Explorer for details.",sig);status("The transaction failed on-chain.","error");return}
+  if(["confirmed","finalized"].includes(value.confirmationStatus)){
+    confirmedReceipt(sig,submittedAmount);
+    trace("Solana RPC confirmed transaction "+sig);
+    return;
+  }
+  progress("submitted","The transaction is being processed. You can check again.",sig);
+ }catch(error){
+  progress("unknown","Could not check confirmation now. Your transaction ID is saved; use Explorer to verify.",sig);
+ }finally{$("checkSignatureBtn").disabled=false}
+}
+function restoreSubmitted(){
+ try{
+  const stored=JSON.parse(localStorage.getItem(PENDING_STORAGE)||"null");
+  if(stored&&/^[1-9A-HJ-NP-Za-km-z]{60,100}$/.test(stored.signature)){
+   submittedSignature=stored.signature;submittedAmount=Number(stored.amount);
+   progress("unknown","An earlier transfer was submitted. Check its status before sending again.",stored.signature);
+  }
+ }catch(_){}
+}
+async function showDemo(){
+ $("demoPanel").hidden=false;
+ $("demoPanel").scrollIntoView({behavior:"smooth",block:"nearest"});
+ await loadDemo();
+}
+async function loadDemo(){
+ $("demoStatus").textContent="Loading a recent finalized Devnet transaction…";
+ $("demoExplorer").hidden=true;$("demoRetryBtn").disabled=true;
+ try{
+  const response=await fetch("/api/demo",{cache:"no-store"});
+  if(!response.ok)throw Error("Network example unavailable");
+  const info=await response.json();
+  if(!info.ok||!/^[1-9A-HJ-NP-Za-km-z]{60,100}$/.test(info.signature)||!Number.isSafeInteger(info.slot))throw Error("No verifiable example");
+  $("demoStatus").textContent="Recent finalized Devnet transaction · slot "+info.slot+". This transaction was not created by Solana Operator.";
+  $("demoExplorer").href="https://explorer.solana.com/tx/"+info.signature+"?cluster=devnet";
+  $("demoExplorer").hidden=false;
+ }catch(error){
+  $("demoStatus").textContent="A network example could not be loaded right now. The walkthrough above is illustrative and does not send anything.";
+ }finally{$("demoRetryBtn").disabled=false}
+}
 async function approve(){
  if(busy||!pending||!provider||!publicKey)return;
  const draft=pending;pending=null;setBusy(true);D.approve.disabled=true;D.approve.textContent="Open your wallet…";
+ progress("validated","Rechecking your balance and the fee before signing.");
+ let signedSignature=null;
  status("Checking the balance and fee again…");
  try{
   if(provider.publicKey?.toString()!==publicKey.toBase58())throw Error("Connected wallet changed. Re-run the instruction.");
@@ -194,27 +302,35 @@ async function approve(){
   if(!fee||fee.value===null||current-draft.lamports-fee.value<draft.reserve)throw Error("The balance or fee changed and the policy no longer allows this transfer.");
   if(typeof provider.signTransaction!=="function")throw Error("Your wallet cannot sign a Solana transaction.");
   trace("Final balance and fee check passed.");
+  progress("wallet","Your wallet is waiting for your approval.");
+  trace("Wallet signature requested. No transaction submitted yet.");
   status("Review and approve the transfer in your wallet.");
   const signed=await provider.signTransaction(draft.tx);
   const signature=await rpc.sendRawTransaction(signed.serialize());
+  signedSignature=signature;persistSubmitted(signature,draft.amount);
+  progress("submitted","Transaction submitted to Devnet. Waiting for network confirmation.",signature);
   trace("Signed transaction submitted: "+signature);
   stage(4,[1,2,3]);status("Transfer submitted. Checking its status on Devnet…");
   const confirmation=await rpc.confirmTransaction({signature,blockhash:block.blockhash,lastValidBlockHeight:block.lastValidBlockHeight},"confirmed");
   if(confirmation.value.err)throw Error("Solana reported a transaction failure.");
-  D.receipt.hidden=false;D.signature.textContent=signature;
-  D.receiptLink.href="https://explorer.solana.com/tx/"+signature+"?cluster=devnet";
-  saveHistory(signature,draft.amount);trace("Solana Devnet confirmed the transfer.");
-  stage(4,[1,2,3,4]);status("Transfer confirmed. Receipt available below.","success");
+  confirmedReceipt(signature,draft.amount);trace("Solana Devnet confirmed the transfer.");
   await refreshBalance(true).catch(()=>{});
   D.receipt.scrollIntoView({behavior:"smooth",block:"nearest"});
  }catch(error){
   trace("Execution stopped: "+(error.message||"Unknown wallet error"));
-  status("Transaction not confirmed: "+(error.message||"Unknown wallet error"),"error");
-  stage(2,[1]);
+  if(signedSignature){
+   progress("unknown","Submitted, but confirmation could not be verified. Do not resend yet; use Check status or Explorer.",signedSignature);
+   status("Confirmation is still unknown. Check the existing transaction first.","error");
+  }else{
+   progress("failed",error.message||"Wallet approval was cancelled.");
+   status("No confirmed transfer. "+(error.message||"Wallet request stopped."),"error");
+   stage(2,[1]);
+  }
  }finally{D.approve.textContent="Continue to wallet";setBusy(false)}
 }
 function newTask(){
- if(busy)return;D.input.value="";resetReview();status("Ready for another request.");D.input.focus();window.scrollTo({top:0,behavior:"smooth"})
+ if(busy)return;
+ if(submittedSignature){status("An earlier transfer is still unconfirmed. Check its status before starting another.","error");$("progressPanel").scrollIntoView({behavior:"smooth",block:"nearest"});return;}D.input.value="";resetReview();status("Ready for another request.");D.input.focus();window.scrollTo({top:0,behavior:"smooth"})
 }
 function sampleBalance(){
  if(busy)return;resetReview();D.input.value="How much SOL is in my Devnet wallet?";D.input.focus();status("Balance request added. Click Check request to continue.")
@@ -229,6 +345,10 @@ async function checkAgent(){
   D.model.textContent=data.aiConfigured?(String(data.model||"").toLowerCase().includes("deepseek")?"DeepSeek configured":"AI configured"):"Built-in parser";
  }catch(error){D.model.textContent="Local fallback"}
 }
+$("demoBtn").addEventListener("click",showDemo);
+$("demoRetryBtn").addEventListener("click",loadDemo);
+$("demoCloseBtn").addEventListener("click",()=>{$("demoPanel").hidden=true});
+$("checkSignatureBtn").addEventListener("click",checkSubmittedStatus);
 D.form.addEventListener("submit",analyze);
 D.input.addEventListener("keydown",event=>{if(event.key==="Enter"&&(event.ctrlKey||event.metaKey))analyze(event)});
 D.connect.addEventListener("click",()=>connectWallet());
@@ -241,5 +361,5 @@ $("newTaskBtn").addEventListener("click",newTask);
 $("mobileNewTaskBtn").addEventListener("click",newTask);
 $("activityNav").addEventListener("click",()=>$("activityPanel").scrollIntoView({behavior:"smooth",block:"center"}));
 $("guideNav").addEventListener("click",()=>$("guidePanel").scrollIntoView({behavior:"smooth",block:"center"}));
-renderHistory();stage(1);checkAgent();
+renderHistory();restoreSubmitted();stage(1);checkAgent();
 })();
