@@ -70,11 +70,11 @@
             <div class="primary">
               <section class="composer panel" id="composePanel" aria-labelledby="composeHeading">
                 <div class="panel-topline"><span class="section-count">01 / YOUR REQUEST</span><span class="subtle-status"><span class="soft-dot"></span> New task</span></div>
-                <div class="composer-head"><h2 id="composeHeading">What do you need to do?</h2><p>Ask to check your balance or send test SOL to another wallet.</p></div>
+                <div class="composer-head"><h2 id="composeHeading">What do you need to do?</h2><p>Ask a question or tell DeepSeek what you want to do. It can ask for details before preparing a transaction.</p></div>
                 <form id="instructionForm" novalidate>
                   <label class="sr-only" for="command">Your request</label>
                   <textarea id="command" name="instruction" rows="4" maxlength="1200" spellcheck="true" placeholder="How much SOL is in my wallet?"></textarea>
-                  <div class="compose-bottom"><span class="compose-hint">Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to run</span><button id="analyzeBtn" class="button primary-button" type="submit"><span id="analyzeText">Check request</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button></div>
+                  <div class="compose-bottom"><span class="compose-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send</span><button id="analyzeBtn" class="button primary-button" type="submit"><span id="analyzeText">Send</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button></div>
                 </form>
                 <div class="samples"><span class="sample-label">EXAMPLES</span><button id="balancePrompt" type="button" class="sample-btn">Check my balance <span>↗</span></button><button id="transferPrompt" type="button" class="sample-btn">Send SOL with a limit <span>↗</span></button><button id="demoBtn" type="button" class="sample-btn sample-demo">Try without a wallet <span>↗</span></button></div>
                 <p class="inline-message" id="message" role="status" aria-live="polite">This uses Devnet test SOL, not real funds.</p>
@@ -90,9 +90,9 @@
 
 <section id="responsePanel" class="panel response-panel" aria-labelledby="responseTitle" hidden>
                 <div class="panel-topline"><span class="section-count">02 / RESULT</span><span class="agent-source" id="agentSource">Agent</span></div>
-                <h2 id="responseTitle">Your result</h2>
-                <div class="asked"><span class="asked-label">YOU ASKED</span><p id="userRequest"></p></div>
-                <div class="agent-summary"><span class="agent-initial" aria-hidden="true">◎</span><div><span class="asked-label">RESPONSE</span><p id="agentExplanation"></p></div></div>
+                <h2 id="responseTitle">Conversation</h2><div class="conversation-thread" id="conversationMessages" aria-label="Conversation with DeepSeek" aria-live="polite"></div>
+                <div class="asked" hidden><span class="asked-label">YOU ASKED</span><p id="userRequest"></p></div>
+                <div class="agent-summary" hidden><span class="agent-initial" aria-hidden="true">◎</span><div><span class="asked-label">RESPONSE</span><p id="agentExplanation"></p></div></div>
                 <div id="balanceReadout" class="balance-readout" hidden><div><span class="detail-label">YOUR DEVNET BALANCE</span><strong id="observedBalance">—</strong></div><span class="balance-unit">SOL</span></div>
                 <details class="trace-details" id="traceDetails"><summary><span>See what was checked</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><ol id="traceList" class="trace-list"></ol></details>
               </section>
@@ -152,7 +152,6 @@
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.98.4/lib/index.iife.min.js"></script>
-  <script src="/intent.js" defer></script>
   <script src="/app.js" defer></script>
 </body>
 </html>
