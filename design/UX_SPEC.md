@@ -60,7 +60,7 @@ These are project-specific provisional tokens for this design preview, NOT a mod
 
 ## Review gates
 - [x] Journey + screen architecture specified.
-- [ ] Frontend implementation verified with static syntax and HTML checks.
+- [x] Frontend implementation verified with static syntax and HTML checks.
 - [ ] Responsive visual review at mobile/tablet/desktop.
 - [ ] End-to-end connected-wallet / transfer test in browser.
 - [ ] Human design approval.
