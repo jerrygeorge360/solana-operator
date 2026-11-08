@@ -90,7 +90,7 @@ async function agent(text,history){
   const res=await fetch("/api/agent",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({instruction:text,wallet:publicKey?.toBase58()||null,history:history.slice(-12)}),signal:ctrl.signal});
   const result=await res.json().catch(()=>null);
   if(!res.ok)throw Error(result?.error||"DeepSeek is unavailable.");
-  if(!result||!["reply","balance","transfer"].includes(result.intent))throw Error("Agent response is invalid.");
+  if(!result||!["reply","balance","transfer","bulk_transfer"].includes(result.intent))throw Error("Agent response is invalid.");
   return result;
  }finally{clearTimeout(timer)}
 }
@@ -101,40 +101,87 @@ function renderAgent(result){
  (Array.isArray(result.steps)?result.steps:[]).forEach(trace);
 }
 async function makeTransfer(result,text){
- const sol=SDK(),amount=Number(result.amountSol),aiMinimum=Number(result.minimumBalanceSol??0);
- if(!Number.isFinite(amount)||amount<=0||!Number.isFinite(aiMinimum)||aiMinimum<0)throw Error("The proposed amount or reserve is invalid.");
+ const sol=SDK();
+ const bulk=result.intent==="bulk_transfer"||result.type==="bulk";
+ const proposed=bulk?result.transfers:[{recipient:result.recipient,amountSol:result.amountSol}];
+ if(!Array.isArray(proposed)||proposed.length<(bulk?2:1)||proposed.length>10)throw Error("Enter between 2 and 10 recipients for a bulk transfer.");
+ const minFromModel=Number(result.minimumBalanceSol??0);
+ if(!Number.isFinite(minFromModel)||minFromModel<0)throw Error("Invalid minimum balance. Nothing was prepared.");
  const userMessages=dialog.filter(m=>m.role==="user").map(m=>m.content).join("\n");
- if(typeof result.recipient!=="string"||!userMessages.includes(result.recipient))throw Error("The recipient address was not provided by you. No transfer was prepared.");
- const recipient=new (sol.PublicKey)(result.recipient);
- const lamports=Math.round(amount*sol.LAMPORTS_PER_SOL);
- const minSol=aiMinimum;
-
- const minLamports=Math.ceil(minSol*sol.LAMPORTS_PER_SOL);
- if(!Number.isSafeInteger(lamports)||lamports<1||!Number.isSafeInteger(minLamports))throw Error("Amount cannot be safely represented.");
- const rpc=conn(),balance=await refreshBalance(true);
- const block=await rpc.getLatestBlockhash("confirmed");
- const tx=new sol.Transaction({feePayer:publicKey,recentBlockhash:block.blockhash}).add(sol.SystemProgram.transfer({fromPubkey:publicKey,toPubkey:recipient,lamports}));
- const feeResult=await rpc.getFeeForMessage(tx.compileMessage(),"confirmed");
- if(!feeResult||feeResult.value===null)throw Error("Network fee estimate is unavailable. Transfer refused.");
- const fee=feeResult.value,remaining=balance-lamports-fee;
+ const amounts=[];const seen=new Set();
+ for(const row of proposed){
+  const recipientText=typeof row?.recipient==="string"?row.recipient.trim():"";
+  if(!recipientText||!userMessages.includes(recipientText))throw Error("One recipient address wasn't supplied in this conversation. Please check your list.");
+  let recipient;
+  try{recipient=new sol.PublicKey(recipientText)}catch(_){throw Error("One recipient address is invalid. Please check your list.");}
+  const address=recipient.toBase58();
+  if(seen.has(address))throw Error("The same recipient appears twice. Please combine that recipient's amounts or correct the addresses.");
+  if(address===publicKey.toBase58())throw Error("Your own wallet appears in the recipient list. Remove it to continue.");
+  seen.add(address);
+  const amount=Number(row.amountSol);
+  const lamports=Math.round(amount*sol.LAMPORTS_PER_SOL);
+  if(!Number.isFinite(amount)||amount<=0||!Number.isSafeInteger(lamports)||lamports<=0||Math.abs(amount*sol.LAMPORTS_PER_SOL-lamports)>0.00001){
+   throw Error("One transfer amount is invalid. Amounts must be positive, with up to nine decimal places.");
+  }
+  amounts.push({address,recipient,amount,lamports});
+ }
+ const totalLamports=amounts.reduce((sum,x)=>sum+x.lamports,0);
+ const reserveSol=minFromModel;
+ const reserveLamports=Math.ceil(reserveSol*sol.LAMPORTS_PER_SOL);
+ if(!Number.isSafeInteger(totalLamports)||!Number.isSafeInteger(reserveLamports)||reserveLamports<0)throw Error("The total or reserve is too large to process.");
+ // Optional numeric-language sanity check adds a stronger reserve; it never weakens the model's reserve.
+ const minMatches=[...userMessages.matchAll(/(?:keep|leave|retain|reserve|at least|minimum(?: of)?)\s+(\d+(?:\.\d+)?)\s*sols?\b/gi)];
+ let reserve=reserveLamports;
+ for(const entry of minMatches){
+  const userMin=Math.ceil(Number(entry[1])*sol.LAMPORTS_PER_SOL);
+  if(Number.isSafeInteger(userMin)&&userMin>reserve)reserve=userMin;
+ }
+ const connRPC=conn();
+ const balance=await refreshBalance(true);
+ const latest=await connRPC.getLatestBlockhash("confirmed");
+ const transaction=new sol.Transaction({feePayer:publicKey,recentBlockhash:latest.blockhash});
+ for(const row of amounts)transaction.add(sol.SystemProgram.transfer({fromPubkey:publicKey,toPubkey:row.recipient,lamports:row.lamports}));
+ // Legacy Solana transactions have a strict size ceiling. Refuse, do not silently omit recipients.
+ const serialized=transaction.serialize({requireAllSignatures:false,verifySignatures:false});
+ if(serialized.length>1232)throw Error("The complete batch does not fit in one Solana transaction. Try fewer recipients.");
+ const feeResult=await connRPC.getFeeForMessage(transaction.compileMessage(),"confirmed");
+ if(!feeResult||feeResult.value===null)throw Error("Network fee unavailable. No transfer was prepared.");
+ const fee=feeResult.value;
+ const remaining=balance-totalLamports-fee;
  D.review.hidden=false;
- D.amount.textContent=String(amount);D.recipient.textContent=recipient.toBase58();
+ D.amount.textContent=(totalLamports/sol.LAMPORTS_PER_SOL).toLocaleString("en-US",{maximumFractionDigits:9});
+ $("totalAmountLabel").textContent=bulk?"TOTAL TO SEND":"AMOUNT";
+ $("singleRecipientArea").hidden=bulk;
+ $("bulkRecipientArea").hidden=!bulk;
+ if(bulk){
+  $("bulkRecipientCount").textContent=amounts.length+" wallets";
+  const rows=$("bulkRecipientRows");rows.replaceChildren();
+  amounts.forEach((t,i)=>{
+   const tr=document.createElement("tr");
+   const no=document.createElement("td");no.textContent=String(i+1);
+   const recipient=document.createElement("td");recipient.className="bulk-address";recipient.textContent=t.address;
+   const value=document.createElement("td");value.textContent=t.amount.toLocaleString("en-US",{maximumFractionDigits:9});
+   tr.append(no,recipient,value);rows.appendChild(tr);
+  });
+ }else D.recipient.textContent=amounts[0].address;
  D.current.textContent=fmt(balance/sol.LAMPORTS_PER_SOL,6)+" SOL";
  D.fee.textContent=fmt(fee/sol.LAMPORTS_PER_SOL,6)+" SOL";
- D.minimum.textContent=fmt(minSol,6)+" SOL";
+ D.minimum.textContent=fmt(reserve/sol.LAMPORTS_PER_SOL,6)+" SOL";
  D.remaining.textContent=fmt(remaining/sol.LAMPORTS_PER_SOL,6)+" SOL";
- trace("Read current wallet balance and network fee from Solana Devnet RPC.");
- trace("Recipient matched a user-provided address. Check amount and recipient in the review.");
- trace("Minimum balance shown in the transfer review was enforced.");
- if(remaining<minLamports||remaining<0){
-  pending=null;showPolicy(false,"Sending this amount would leave less SOL than you asked to keep. No transfer will be sent.");
-  trace("Balance limit not met. Signing disabled.");stage(2,[1]);status("You need to lower the amount or change your limit.","error");
+ trace("Solana RPC: fetched balance and estimated one transaction fee.");
+ trace("Review: "+amounts.length+" explicit recipient address"+(amounts.length===1?"":"es")+"; total "+D.amount.textContent+" SOL.");
+ trace("Policy: reserve "+fmt(reserve/sol.LAMPORTS_PER_SOL,6)+" SOL after transfer and fees.");
+ if(remaining<reserve||remaining<0){
+  pending=null;
+  showPolicy(false,"The total plus network fee would leave less than your minimum balance. Nothing can be signed.");
+  trace("Policy blocked the full batch.");
+  stage(2,[1]);status("The total exceeds your available spending amount.","error");
  }else{
-  pending={tx,lamports,reserve:minLamports,amount};
-  showPolicy(true,"The amount fits your limit, including the estimated fee. Review the details before signing.");
-  if(result.mode==="ai")D.explanation.textContent="The amount and recipient match your request. Review the estimated fee and balance left below.";
-  trace("Checks passed. Only your wallet can sign.");
-  stage(3,[1,2]);status("Review the amount and recipient, then continue to your wallet.","success");
+  pending={tx:transaction,lamports:totalLamports,reserve,amount:totalLamports/sol.LAMPORTS_PER_SOL,count:amounts.length};
+  showPolicy(true,bulk?"All "+amounts.length+" transfers will be sent together in one transaction if you approve.":"The amount fits your limit, including the estimated fee. Review before signing.");
+  trace("Wallet: awaiting your signature. No SOL sent yet.");
+  stage(3,[1,2]);
+  status(bulk?"Review all "+amounts.length+" recipients, then approve one transaction in your wallet.":"Review the amount and recipient, then continue to your wallet.","success");
  }
  D.review.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
@@ -158,7 +205,7 @@ async function analyze(event){
     status("Balance checked.","success");
    }else status("Connect your wallet to check its balance.");
    stage(2,[1]);
-  }else if(result.intent==="transfer"){
+  }else if(result.intent==="transfer"||result.intent==="bulk_transfer"){
    if(!publicKey){deferredProposal=result;stage(2,[1]);status("Connect your wallet to review the proposed transfer.");}
    else await makeTransfer(result,text);
   }else{stage(1);status("Reply below to continue.");}
@@ -361,6 +408,7 @@ D.refresh.addEventListener("click",()=>refreshBalance().catch(error=>status(erro
 D.approve.addEventListener("click",approve);
 $("balancePrompt").addEventListener("click",sampleBalance);
 $("transferPrompt").addEventListener("click",sampleTransfer);
+$("bulkPrompt").addEventListener("click",()=>{if(busy)return;resetReview();D.input.value="I need to send SOL to several wallets. Can you help me set up a bulk transfer?";D.input.focus();status("DeepSeek will collect recipients, amounts, and any minimum balance.");});
 $("newTaskBtn").addEventListener("click",newTask);
 $("mobileNewTaskBtn").addEventListener("click",newTask);
 $("activityNav").addEventListener("click",()=>$("activityPanel").scrollIntoView({behavior:"smooth",block:"center"}));
