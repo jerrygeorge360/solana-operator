@@ -47,14 +47,6 @@ module.exports=async function handler(req,res){
   const gatewayToken=process.env.AI_GATEWAY_API_KEY||req.headers?.["x-vercel-oidc-token"]||process.env.VERCEL_OIDC_TOKEN;
   const openaiToken=process.env.OPENAI_API_KEY;
   const auth=deepseekToken?{token:deepseekToken,deepseek:true,gateway:false}:gatewayToken?{token:gatewayToken,gateway:true,deepseek:false}:openaiToken?{token:openaiToken,gateway:false,deepseek:false}:null;
-  if(req.method==="GET" && req.query?.diagnostic==="zK7sN2pE4wR9vA6tX1dM3qF8cJ5bH0yU") {
-    if(!auth || !auth.deepseek) return res.status(503).json({ok:false,error:"Direct DeepSeek is not configured"});
-    try{
-      const message=await chat([{role:"system",content:"This is a non-executing tool-call compatibility check. You MUST call the propose_transfer tool with amountSol 0.0001, recipient 11111111111111111111111111111111, minimumBalanceSol 0.3, and explanation diagnostic only. No blockchain action is authorized."},{role:"user",content:"Propose a simulated Devnet transfer for validation only; call propose_transfer."}],auth);
-      const used=(message.tool_calls||[]).map(x=>x.function?.name).filter(Boolean);
-      return res.status(200).json({ok:true,model:process.env.DEEPSEEK_MODEL||"deepseek-flash",responseReceived:true,toolsCalled:used});
-    }catch(e){return res.status(502).json({ok:false,error:safe(e.message,200)})}
-  }
   if(req.method==="GET")return res.status(200).json({ok:true,aiConfigured:!!auth,model:auth?.deepseek?(process.env.DEEPSEEK_MODEL||"deepseek-flash"):(auth?.gateway?(process.env.AI_GATEWAY_MODEL||"not configured"):(auth?"direct provider":"none"))});
   if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
   if(!auth)return res.status(503).json({error:"No AI provider is configured"});
