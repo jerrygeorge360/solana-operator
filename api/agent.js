@@ -34,7 +34,7 @@ async function chat(messages,auth){
   const abort=new AbortController();
   const timer=setTimeout(()=>abort.abort(),14000);
   try{
-    const response=await fetch(auth.gateway?AI_GATEWAY:"https://api.openai.com/v1/chat/completions",{method:"POST",headers:{"content-type":"application/json",authorization:"Bearer "+auth.token},body:JSON.stringify({model:auth.gateway?(process.env.AI_GATEWAY_MODEL||"openai/gpt-4.1-mini"):(process.env.OPENAI_MODEL||"gpt-4.1-mini"),temperature:0,max_tokens:300,messages,tools,tool_choice:"auto"}),signal:abort.signal});
+    const response=await fetch(auth.gateway?AI_GATEWAY:"https://api.openai.com/v1/chat/completions",{method:"POST",headers:{"content-type":"application/json",authorization:"Bearer "+auth.token},body:JSON.stringify({model:auth.gateway?(process.env.AI_GATEWAY_MODEL||"openai/gpt-4.1-mini"):(process.env.OPENAI_MODEL||"gpt-4.1-mini"),temperature:0,max_tokens:700,messages,tools,tool_choice:"auto"}),signal:abort.signal});
     if(!response.ok){const msg=await response.text();throw Error("AI Gateway request failed ("+response.status+"): "+msg.slice(0,150))}
     const body=await response.json();
     if(!body?.choices?.[0]?.message)throw Error("No AI response");
@@ -46,7 +46,7 @@ module.exports=async function handler(req,res){
   const gatewayToken=process.env.AI_GATEWAY_API_KEY||process.env.VERCEL_OIDC_TOKEN;
   const openaiToken=process.env.OPENAI_API_KEY;
   const auth=gatewayToken?{token:gatewayToken,gateway:true}:openaiToken?{token:openaiToken,gateway:false}:null;
-  if(req.method==="GET")return res.status(200).json({ok:true,aiConfigured:!!auth});
+  if(req.method==="GET")return res.status(200).json({ok:true,aiConfigured:!!auth,model:auth?.gateway?(process.env.AI_GATEWAY_MODEL||"not configured"):(auth?"direct provider":"none")});
   if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
   if(!auth)return res.status(503).json({error:"No AI provider is configured"});
   const instruction=typeof req.body?.instruction==="string"?req.body.instruction.slice(0,1200).trim():"";
