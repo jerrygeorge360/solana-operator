@@ -45,6 +45,8 @@ Codex (select if actually used). For the underlying coding model, select only th
 5. Observe the estimated fee and reserve policy. If sufficient, approve in the wallet and open the Solana Explorer receipt.
 6. Optionally demonstrate a blocked transfer where the minimum balance would be violated.
 
+> **Live AI integration status (Nov 8, 2026):** DeepSeek model selection, tool-calling code, and Vercel OIDC are deployed, but the live AI Gateway request returned HTTP 403 because the Vercel workspace requires a valid credit card. A direct funded DeepSeek API key can also be configured. Do **not** represent the LLM call as successfully demonstrated until billing is resolved and a real tool call is tested. The rule-based fallback remains available.
+
 ## Verify before final submission
 - [ ] New Git-backed live URL is publicly accessible
 - [ ] Wallet connection succeeds with Phantom
