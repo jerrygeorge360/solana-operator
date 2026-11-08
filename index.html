@@ -76,11 +76,19 @@
                   <textarea id="command" name="instruction" rows="4" maxlength="1200" spellcheck="true" placeholder="How much SOL is in my wallet?"></textarea>
                   <div class="compose-bottom"><span class="compose-hint">Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to run</span><button id="analyzeBtn" class="button primary-button" type="submit"><span id="analyzeText">Check request</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button></div>
                 </form>
-                <div class="samples"><span class="sample-label">EXAMPLES</span><button id="balancePrompt" type="button" class="sample-btn">Check my balance <span>↗</span></button><button id="transferPrompt" type="button" class="sample-btn">Send SOL with a limit <span>↗</span></button></div>
+                <div class="samples"><span class="sample-label">EXAMPLES</span><button id="balancePrompt" type="button" class="sample-btn">Check my balance <span>↗</span></button><button id="transferPrompt" type="button" class="sample-btn">Send SOL with a limit <span>↗</span></button><button id="demoBtn" type="button" class="sample-btn sample-demo">Try without a wallet <span>↗</span></button></div>
                 <p class="inline-message" id="message" role="status" aria-live="polite">This uses Devnet test SOL, not real funds.</p>
               </section>
 
-              <section id="responsePanel" class="panel response-panel" aria-labelledby="responseTitle" hidden>
+              <section id="demoPanel" class="panel demo-panel" aria-labelledby="demoHeading" hidden>
+  <div class="panel-topline"><span class="section-count">EXAMPLE / NO WALLET NEEDED</span><span class="demo-tag">Read-only</span></div>
+  <h2 id="demoHeading">See how a transfer works.</h2><p class="body-muted">This walkthrough does not connect a wallet, send SOL or spend funds. It shows the checks you would see before signing.</p>
+  <ol class="demo-steps"><li><strong>Describe</strong><span>“Send 0.05 SOL, but keep at least 0.20 SOL.”</span></li><li><strong>Check</strong><span>We look up the balance and estimate fees before preparing a transfer.</span></li><li><strong>Review</strong><span>We show the amount, recipient and expected balance left. A limit failure blocks signing.</span></li><li><strong>Approve</strong><span>Your wallet must sign. Nothing is sent from this walkthrough.</span></li><li><strong>Verify</strong><span>Confirmed transactions have public receipts on Solana Explorer.</span></li></ol>
+  <div class="demo-proof"><span class="detail-label">LIVE NETWORK EXAMPLE · NOT OUR TRANSFER</span><p id="demoStatus">Looking for a recent finalized Devnet transaction…</p><a id="demoExplorer" href="#" target="_blank" rel="noopener noreferrer" hidden>View this Devnet transaction on Explorer ↗</a></div>
+  <div class="demo-bottom"><button type="button" class="button outline-button" id="demoRetryBtn">Load another example</button><button type="button" class="text-link" id="demoCloseBtn">Close example</button></div>
+</section>
+
+<section id="responsePanel" class="panel response-panel" aria-labelledby="responseTitle" hidden>
                 <div class="panel-topline"><span class="section-count">02 / RESULT</span><span class="agent-source" id="agentSource">Agent</span></div>
                 <h2 id="responseTitle">Your result</h2>
                 <div class="asked"><span class="asked-label">YOU ASKED</span><p id="userRequest"></p></div>
@@ -99,7 +107,13 @@
                 <div class="review-actions"><button type="button" class="button primary-button sign-btn" id="approveBtn" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 6v6c0 5 3.7 8.5 8 10 4.3-1.5 8-5 8-10V6l-8-4Zm-3 10 2 2 4-4"/></svg> Continue to wallet</button><span>Your wallet will ask you to review and sign.</span></div>
               </section>
 
-              <section id="receiptPanel" class="panel receipt-panel" aria-labelledby="receiptHeading" hidden>
+              <section id="progressPanel" class="panel progress-panel" aria-labelledby="progressHeading" hidden>
+  <div class="panel-topline"><span class="section-count">TRANSFER STATUS</span><span id="progressBadge" class="review-state">Preparing</span></div><h2 id="progressHeading">Transaction progress</h2>
+  <ol class="progress-steps" aria-label="Transfer progress"><li id="pValidate">Checks complete</li><li id="pWallet">Wallet signature</li><li id="pSubmitted">Submitted to Devnet</li><li id="pConfirmed">Network confirmation</li></ol>
+  <p id="progressMessage" class="body-muted" role="status" aria-live="polite"></p><div class="progress-tools"><a id="pendingExplorer" href="#" class="button outline-button" target="_blank" rel="noopener noreferrer" hidden>Open transaction on Explorer ↗</a><button type="button" id="checkSignatureBtn" class="button outline-button" hidden>Check status again</button></div>
+</section>
+
+<section id="receiptPanel" class="panel receipt-panel" aria-labelledby="receiptHeading" hidden>
                 <div class="panel-topline"><span class="section-count">04 / RECEIPT</span><span class="verified-tag">Confirmed on Devnet</span></div>
                 <div class="receipt-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></div>
                 <h2 id="receiptHeading">Transfer confirmed.</h2><p>Your Devnet transfer is confirmed. You can check the transaction yourself.</p>
@@ -115,7 +129,7 @@
                 <div class="wallet-balance" id="walletBalance">— <span>SOL</span></div>
                 <div class="wallet-address" id="walletAddress">No wallet connected</div>
                 <button type="button" class="text-link" id="contextConnectBtn">Connect a wallet <span>↗</span></button>
-                <button type="button" class="text-link" id="refreshBtn" hidden>Refresh balance <span>↻</span></button>
+                <button type="button" class="text-link" id="refreshBtn" hidden>Refresh balance <span>↻</span></button><div id="mobileWalletHelp" class="mobile-wallet-help" hidden><p>On a phone, connect through Phantom’s in-app browser—not Safari or Chrome.</p><a id="openPhantomLink" class="button outline-button" href="https://phantom.app/download" target="_blank" rel="noopener noreferrer">Open in Phantom ↗</a><p class="wallet-hint">If the app doesn’t open, launch Phantom, go to Sites and enter this website’s address.</p></div>
               </section>
 
               <section class="context-block guide-context" id="guidePanel">
