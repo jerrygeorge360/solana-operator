@@ -34,7 +34,7 @@ async function chat(messages,auth){
   const abort=new AbortController();
   const timer=setTimeout(()=>abort.abort(),14000);
   try{
-    const response=await fetch(auth.deepseek?"https://api.deepseek.com/chat/completions":(auth.gateway?AI_GATEWAY:"https://api.openai.com/v1/chat/completions"),{method:"POST",headers:{"content-type":"application/json",authorization:"Bearer "+auth.token},body:JSON.stringify({model:auth.deepseek?(process.env.DEEPSEEK_MODEL||"deepseek-flash"):(auth.gateway?(process.env.AI_GATEWAY_MODEL||"deepseek/deepseek-v3.2"):(process.env.OPENAI_MODEL||"gpt-4.1-mini")),temperature:0,max_tokens:700,messages,tools,tool_choice:"auto"}),signal:abort.signal});
+    const response=await fetch(auth.deepseek?"https://api.deepseek.com/chat/completions":(auth.gateway?AI_GATEWAY:"https://api.openai.com/v1/chat/completions"),{method:"POST",headers:{"content-type":"application/json",authorization:"Bearer "+auth.token},body:JSON.stringify({model:auth.deepseek?(process.env.DEEPSEEK_MODEL||"deepseek-flash"):(auth.gateway?(process.env.AI_GATEWAY_MODEL||"deepseek/deepseek-v3.2"):(process.env.OPENAI_MODEL||"gpt-4.1-mini")),temperature:0,max_tokens:700,thinking:auth.deepseek?{type:"disabled"}:undefined,messages,tools,tool_choice:"auto"}),signal:abort.signal});
     if(!response.ok){const msg=await response.text();throw Error("AI Gateway request failed ("+response.status+"): "+msg.slice(0,150))}
     const body=await response.json();
     if(!body?.choices?.[0]?.message)throw Error("No AI response");
