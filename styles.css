@@ -245,3 +245,46 @@ kbd{border:1px solid #d7ddd6;border-radius:4px;padding:2px 4px;font-size:10px;ba
  .sign-btn{width:100%}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation:none!important;transition:none!important}}
+
+/* Guided first-run example and transaction states */
+.sample-demo{border-color:#aec4b2;background:#edf4ec}
+.demo-panel .body-muted{margin-bottom:18px}
+.demo-tag{font-size:10px;font-weight:700;color:#416a51;background:#edf3ea;border-radius:6px;padding:6px 10px}
+.demo-steps{list-style:none;counter-reset:sample;padding:0;margin:17px 0 22px;display:grid;gap:0}
+.demo-steps li{counter-increment:sample;display:grid;grid-template-columns:25px 91px 1fr;gap:8px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line);font-size:12px;line-height:1.55}
+.demo-steps li:before{content:counter(sample,decimal-leading-zero);color:var(--sage);font-size:10px;font-weight:800;margin-top:2px}
+.demo-steps li strong{font-size:12px;color:var(--ink)}
+.demo-steps li span{color:var(--muted)}
+.demo-proof{background:#eff3eb;border-left:3px solid #6a957b;border-radius:7px;padding:16px}
+.demo-proof p{font-size:12px;color:#526256;margin:8px 0 5px;line-height:1.65}
+.demo-proof a{font-size:12px;font-weight:700;color:var(--sage);text-decoration:underline;text-underline-offset:3px;word-break:break-word}
+.demo-bottom{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:15px}
+.mobile-wallet-help{background:#eaf1ea;border-radius:9px;padding:14px;margin-top:14px}
+.mobile-wallet-help p{font-size:12px;color:#506955;line-height:1.6}
+.mobile-wallet-help .wallet-hint{font-size:11px;color:#778679;margin-top:11px;margin-bottom:0}
+.mobile-wallet-help .button{white-space:normal;display:inline-flex}
+.progress-steps{counter-reset:progress;list-style:none;margin:19px 0 20px;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.progress-steps li{position:relative;min-width:0;color:#7d877c;font-size:11px;line-height:1.4;padding-top:32px;word-break:normal}
+.progress-steps li:before{content:counter(progress,decimal-leading-zero);counter-increment:progress;position:absolute;top:0;left:0;width:26px;height:26px;border:1px solid #cbd5cb;border-radius:50%;display:grid;place-items:center;font-size:9px;color:#7d8d7d;font-weight:700}
+.progress-steps li.complete{color:#2d6b48;font-weight:700}
+.progress-steps li.complete:before{background:#e3efe6;border-color:#98bea6;color:#236341;content:"✓"}
+.progress-steps li.current{color:#243f31;font-weight:800}
+.progress-steps li.current:before{color:#fff;background:var(--sage);border-color:var(--sage)}
+.progress-steps li.failed{color:#a34e3c}
+.progress-steps li.failed:before{color:#a34e3c;border-color:#a34e3c;content:"!"}
+.progress-tools{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.progress-tools .button{font-size:11px}
+.trace-list li{padding:9px 8px 9px 13px;border-left:2px solid #d7e0d7;background:#f9faf6;border-radius:0 7px 7px 0;margin:9px 0;list-style:none;display:flex;flex-direction:column;gap:2px}
+.trace-list li:before{content:"CHECK";font-size:9px;font-weight:800;color:#538168;letter-spacing:.8px}
+.trace-list li[data-type="agent"]:before{content:"AGENT"}
+.trace-list li[data-type="rpc"]:before{content:"SOLANA RPC"}
+.trace-list li[data-type="wallet"]:before{content:"WALLET"}
+.trace-list li[data-type="policy"]:before{content:"POLICY"}
+.trace-list li[data-type="status"]:before{content:"STATUS"}
+.trace-list li[data-type="fallback"]:before{content:"FALLBACK";color:#a26446}
+@media(max-width:440px){
+ .demo-steps li{grid-template-columns:24px 1fr;gap:4px 7px}
+ .demo-steps li span{grid-column:2}
+ .progress-steps{gap:5px}
+ .progress-steps li{font-size:10px}
+}
