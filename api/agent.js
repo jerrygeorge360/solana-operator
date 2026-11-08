@@ -43,7 +43,7 @@ async function chat(messages,auth){
 }
 module.exports=async function handler(req,res){
   res.setHeader("Cache-Control","no-store");
-  const gatewayToken=process.env.AI_GATEWAY_API_KEY||process.env.VERCEL_OIDC_TOKEN;
+  const gatewayToken=process.env.AI_GATEWAY_API_KEY||req.headers?.["x-vercel-oidc-token"]||process.env.VERCEL_OIDC_TOKEN;
   const openaiToken=process.env.OPENAI_API_KEY;
   const auth=gatewayToken?{token:gatewayToken,gateway:true}:openaiToken?{token:openaiToken,gateway:false}:null;
   if(req.method==="GET")return res.status(200).json({ok:true,aiConfigured:!!auth,model:auth?.gateway?(process.env.AI_GATEWAY_MODEL||"not configured"):(auth?"direct provider":"none")});
