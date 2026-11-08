@@ -12,10 +12,10 @@ const D={
  amount:$("transferAmount"),recipient:$("recipientAddress"),current:$("figureBalance"),
  fee:$("figureFee"),minimum:$("figureMinimum"),remaining:$("figureRemaining"),
  receipt:$("receiptPanel"),signature:$("receiptSignature"),receiptLink:$("receiptLink"),
- history:$("activityList"),historyCount:$("activityCount")
+ history:$("activityList"),historyCount:$("activityCount"),thread:$("conversationMessages"),followup:$("followupInput")
 };
 let provider=null,publicKey=null,balanceLamports=null,pending=null,busy=false;
-let submittedSignature=null,submittedAmount=null;
+let submittedSignature=null,submittedAmount=null,dialog=[],deferredProposal=null;
 const PENDING_STORAGE="operator:pending-devnet-tx:v1";
 const SDK=()=>{if(!window.solanaWeb3)throw Error("Solana library failed to load. Reload the page.");return window.solanaWeb3};
 const conn=()=>new (SDK().Connection)(RPC,"confirmed");
@@ -30,11 +30,12 @@ function trace(text){
  li.dataset.type=/^Tool|^DeepSeek|agent|planner/i.test(message)?"agent":/RPC|balance read|Devnet|Network:|network fee/i.test(message)?"rpc":/wallet|signed|signature/i.test(message)?"wallet":/policy|limit|reserve|blocked|checks passed/i.test(message)?"policy":/fallback|parser/i.test(message)?"fallback":"status";
  D.trace.appendChild(li);
 }
-function setBusy(value){busy=value;D.run.disabled=value;D.runLabel.textContent=value?"Checking…":"Check request"}
-function resetReview(){
- pending=null;D.approve.disabled=true;D.approve.textContent="Continue to wallet";
- D.response.hidden=true;D.review.hidden=true;D.receipt.hidden=true;D.readout.hidden=true;
+function setBusy(value){busy=value;D.run.disabled=value;D.runLabel.textContent=value?"Thinking…":"Send";$("followupSend").disabled=value}
+function resetReview(keepChat=false){
+ pending=null;deferredProposal=null;D.approve.disabled=true;D.approve.textContent="Continue to wallet";
+ D.review.hidden=true;D.receipt.hidden=true;D.readout.hidden=true;
  D.trace.replaceChildren();$("traceDetails").open=false;stage(1);
+ if(!keepChat){dialog=[];D.thread.replaceChildren();D.response.hidden=true;D.followup.value=""}
 }
 function showPolicy(ok,message){
  D.badge.textContent=ok?"Within policy":"Action blocked";D.badge.className="review-state "+(ok?"passed":"blocked");
@@ -72,59 +73,42 @@ async function connectWallet(silent=false){
   D.contextConnect.hidden=true;D.refresh.hidden=false;
   await refreshBalance(true);
   if(!silent)status("Wallet connected. Balance loaded.","success");
+  if(deferredProposal){const proposal=deferredProposal;deferredProposal=null;try{await makeTransfer(proposal,"")}catch(error){status(error.message||"Could not prepare the transfer.","error")}}
   return true;
  }catch(error){status(error.message||"Unable to connect a wallet.","error");return false}
 }
-function parseFallback(text){
- const p=window.OperatorIntent.parse(text);
- return {
-  mode:"fallback",
-  intent:p.transferRequested?"transfer":(p.balanceRequested?"balance":"unknown"),
-  amountSol:p.amountSol,recipient:p.recipient,minimumBalanceSol:p.minimumBalanceSol??0,
-  explanation:"DeepSeek was unavailable. The built-in parser read this request; no transfer was sent.",
-  steps:["DeepSeek was unavailable. Used the built-in parser; no transaction was sent."]
- };
+function addMessage(role,text){
+ D.response.hidden=false;
+ const row=document.createElement("div");row.className="chat-turn "+role;
+ const label=document.createElement("span");label.className="chat-role";label.textContent=role==="user"?"You":"DeepSeek";
+ const body=document.createElement("p");body.textContent=String(text||"");
+ row.append(label,body);D.thread.appendChild(row);row.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
-async function agent(text){
- const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);
+async function agent(text,history){
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),45000);
  try{
-  const response=await fetch("/api/agent",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({instruction:text,wallet:publicKey?.toBase58()||null}),signal:controller.signal});
-  if(!response.ok)throw Error("AI service unavailable");
-  const result=await response.json();
-  if(!result||!["balance","transfer","unknown"].includes(result.intent))throw Error("Agent response was invalid");
-  result.mode="ai";return result;
- }catch(error){return parseFallback(text)}finally{clearTimeout(timer)}
+  const res=await fetch("/api/agent",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({instruction:text,wallet:publicKey?.toBase58()||null,history:history.slice(-12)}),signal:ctrl.signal});
+  const result=await res.json().catch(()=>null);
+  if(!res.ok)throw Error(result?.error||"DeepSeek is unavailable.");
+  if(!result||!["reply","balance","transfer"].includes(result.intent))throw Error("Agent response is invalid.");
+  return result;
+ }finally{clearTimeout(timer)}
 }
-function renderAgent(result,instruction){
- D.response.hidden=false;D.userRequest.textContent=instruction;
- D.explanation.textContent = result.mode==="fallback"
-  ? "DeepSeek did not respond, so this request was read by the built-in parser. Check the details carefully."
-  : result.intent==="transfer"
-    ? "You asked to send "+String(result.amountSol??"an amount of")+" SOL. I’ll check the recipient, fee and balance left before you sign."
-    : result.intent==="balance"
-      ? "I’ll read your wallet balance from Solana Devnet."
-      : "Try asking for your balance or a specific SOL transfer.";
- // Keep model prose out of the UI. Show only validated action details and recorded tool steps.
- const AI=result.mode==="ai";D.source.textContent=AI?"DeepSeek":"Built-in parser";
- D.model.textContent=AI?"DeepSeek responded":"Built-in parser used";
+function renderAgent(result){
+ const answer=String(result.message||"Could you clarify?");
+ addMessage("assistant",answer);dialog.push({role:"assistant",content:answer});
+ D.source.textContent="DeepSeek";D.model.textContent="DeepSeek · active";
  (Array.isArray(result.steps)?result.steps:[]).forEach(trace);
- trace("Network: Solana Devnet.");
- D.response.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
-function requestedAmount(text){return window.OperatorIntent.parse(text).amountSol}
-function requestedMinimum(text){return window.OperatorIntent.parse(text).minimumBalanceSol}
 async function makeTransfer(result,text){
- const sol=SDK(),parsed=window.OperatorIntent.parse(text);
- const amount=Number(result.amountSol),aiMinimum=Number(result.minimumBalanceSol??0);
- const actualAmount=parsed.amountSol;
- if(actualAmount===null||actualAmount<=0)throw Error("Include a positive amount, such as 'send 2 SOL'.");
- if(!Number.isFinite(amount)||amount<=0||!Number.isFinite(aiMinimum)||aiMinimum<0)throw Error("The transfer amount or reserve is invalid.");
- if(Math.abs(amount-actualAmount)>1e-9)throw Error("The suggested amount differs from your request. No transfer was prepared. Please check the amount and try again.");
- if(parsed.recipientCount!==1||!parsed.recipient)throw Error("Add one recipient address after 'to', for example 'send 2 SOL to <wallet address>'.");
- if(result.recipient&&result.recipient!==parsed.recipient)throw Error("The suggested recipient differs from your request. No transfer was prepared.");
- const recipient=new (sol.PublicKey)(parsed.recipient);
+ const sol=SDK(),amount=Number(result.amountSol),aiMinimum=Number(result.minimumBalanceSol??0);
+ if(!Number.isFinite(amount)||amount<=0||!Number.isFinite(aiMinimum)||aiMinimum<0)throw Error("The proposed amount or reserve is invalid.");
+ const userMessages=dialog.filter(m=>m.role==="user").map(m=>m.content).join("\n");
+ if(typeof result.recipient!=="string"||!userMessages.includes(result.recipient))throw Error("The recipient address was not provided by you. No transfer was prepared.");
+ const recipient=new (sol.PublicKey)(result.recipient);
  const lamports=Math.round(amount*sol.LAMPORTS_PER_SOL);
- const minSol=Math.max(aiMinimum,requestedMinimum(text)??0);
+ const minSol=aiMinimum;
+
  const minLamports=Math.ceil(minSol*sol.LAMPORTS_PER_SOL);
  if(!Number.isSafeInteger(lamports)||lamports<1||!Number.isSafeInteger(minLamports))throw Error("Amount cannot be safely represented.");
  const rpc=conn(),balance=await refreshBalance(true);
@@ -156,43 +140,32 @@ async function makeTransfer(result,text){
 }
 async function analyze(event){
  if(event)event.preventDefault();
- if(busy)return;const text=D.input.value.trim();
- if(!text){status("Write an instruction first.","error");D.input.focus();return}
- resetReview();setBusy(true);status("Checking your request…");
+ if(busy)return;
+ const text=D.input.value.trim();
+ if(!text){status("Write a message first.","error");D.input.focus();return}
+ if(submittedSignature){status("Check your previously submitted transfer before starting another.","error");$("progressPanel").scrollIntoView({behavior:"smooth",block:"nearest"});return}
+ resetReview(true);
+ const past=dialog.slice(-12);dialog.push({role:"user",content:text});addMessage("user",text);
+ D.input.value="";setBusy(true);status("DeepSeek is reading your message…");
  try{
-  if(!publicKey){status("Connect your wallet first. Your request will stay here.","error");D.connect.focus();return;}
-  const parsed=window.OperatorIntent.parse(text);
-  if(parsed.transferRequested){
-    if(parsed.amountSol===null||parsed.amountSol<=0){
-      status("Include an amount, for example: Send 2 SOL to [wallet address].","error");D.input.focus();return;
-    }
-    if(parsed.recipientCount!==1||!parsed.recipient){
-      status("Add the recipient’s full wallet address after 'to'. Example: Send 0.05 SOL to [wallet address].","error");D.input.focus();return;
-    }
-  }
-  if(submittedSignature){
-    status("You have a submitted transaction without a confirmed result. Check its status before sending another.","error");
-    $("progressPanel").scrollIntoView({behavior:"smooth",block:"nearest"});return;
-  }
-  let result=await agent(text);
-  if(parsed.transferRequested&&parsed.recipient&&result.intent==="unknown")result=parseFallback(text);
-  renderAgent(result,text);
+  const result=await agent(text,past);renderAgent(result);
   if(result.intent==="balance"){
-   const balance=await refreshBalance(true);
-   D.readout.hidden=false;D.observed.textContent=fmt(balance/SDK().LAMPORTS_PER_SOL,6);
-   D.explanation.textContent="This balance was read from Solana Devnet. No transaction was created.";
-   trace("Balance read only. No transaction or signature needed.");
-   stage(2,[1]);status("Balance checked.","success");
+   if(publicKey){
+    const value=await refreshBalance(true);
+    D.readout.hidden=false;D.observed.textContent=fmt(value/SDK().LAMPORTS_PER_SOL,6);
+    trace("Balance verified through Solana Devnet RPC.");
+    status("Balance checked.","success");
+   }else status("Connect your wallet to check its balance.");
+   stage(2,[1]);
   }else if(result.intent==="transfer"){
-   await makeTransfer(result,text);
-  }else{
-   stage(2,[1]);trace("No supported transfer or balance request found.");
-   status("Try “check my balance” or “send 0.05 SOL to …”.","error");
-  }
+   if(!publicKey){deferredProposal=result;stage(2,[1]);status("Connect your wallet to review the proposed transfer.");}
+   else await makeTransfer(result,text);
+  }else{stage(1);status("Reply below to continue.");}
+  D.followup.focus({preventScroll:true});
  }catch(error){
-  status(error.message||"Unable to finish the task.","error");trace("Stopped: "+(error.message||"Unknown error"));
-  pending=null;D.approve.disabled=true;
-  if(!D.review.hidden)showPolicy(false,error.message||"Validation failed.");
+  dialog.pop();addMessage("assistant","DeepSeek couldn't respond. Try sending that message again.");
+  D.input.value=text;status(error.message||"Nothing was sent.","error");
+  trace("Agent request failed. Nothing was sent.");
  }finally{setBusy(false)}
 }
 function getHistory(){
@@ -355,7 +328,7 @@ function sampleBalance(){
  if(busy)return;resetReview();D.input.value="How much SOL is in my Devnet wallet?";D.input.focus();status("Balance request added. Click Check request to continue.")
 }
 function sampleTransfer(){
- if(busy)return;resetReview();D.input.value="Send 0.05 SOL to [PASTE_DEVNET_WALLET_ADDRESS] but keep at least 0.20 SOL.";D.input.focus();status("Replace the bracketed text with the recipient’s full Devnet address.");
+ if(busy)return;resetReview();D.input.value="I want to send 0.05 SOL, but keep at least 0.20 SOL in my wallet.";D.input.focus();status("DeepSeek will ask for any missing details.");
 }
 async function checkAgent(){
  try{
@@ -364,6 +337,11 @@ async function checkAgent(){
   D.model.textContent=data.aiConfigured?(String(data.model||"").toLowerCase().includes("deepseek")?"DeepSeek configured":"AI configured"):"Built-in parser";
  }catch(error){D.model.textContent="Local fallback"}
 }
+$("followupForm").addEventListener("submit",event=>{
+ event.preventDefault();if(busy)return;
+ const message=D.followup.value.trim();if(!message)return;
+ D.input.value=message;D.followup.value="";analyze();
+});
 $("demoBtn").addEventListener("click",showDemo);
 $("demoRetryBtn").addEventListener("click",loadDemo);
 $("demoCloseBtn").addEventListener("click",()=>{$("demoPanel").hidden=true});
