@@ -90,7 +90,7 @@
 
 <section id="responsePanel" class="panel response-panel" aria-labelledby="responseTitle" hidden>
                 <div class="panel-topline"><span class="section-count">02 / RESULT</span><span class="agent-source" id="agentSource">Agent</span></div>
-                <h2 id="responseTitle">Conversation</h2><div class="conversation-thread" id="conversationMessages" aria-label="Conversation with DeepSeek" aria-live="polite"></div>
+                <h2 id="responseTitle">Conversation</h2><div class="conversation-thread" id="conversationMessages" aria-label="Conversation with DeepSeek" aria-live="polite"></div><form id="followupForm" class="followup-form"><label for="followupInput">Your reply</label><div class="followup-row"><textarea id="followupInput" rows="2" maxlength="1200" placeholder="Reply to DeepSeek…"></textarea><button id="followupSend" class="button primary-button" type="submit">Send</button></div></form>
                 <div class="asked" hidden><span class="asked-label">YOU ASKED</span><p id="userRequest"></p></div>
                 <div class="agent-summary" hidden><span class="agent-initial" aria-hidden="true">◎</span><div><span class="asked-label">RESPONSE</span><p id="agentExplanation"></p></div></div>
                 <div id="balanceReadout" class="balance-readout" hidden><div><span class="detail-label">YOUR DEVNET BALANCE</span><strong id="observedBalance">—</strong></div><span class="balance-unit">SOL</span></div>
