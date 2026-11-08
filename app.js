@@ -216,7 +216,7 @@ async function analyze(event){
    addMessage("assistant",explanation);dialog.push({role:"assistant",content:explanation});
    trace("Transfer review stopped. No transaction sent.");
   }else{
-   dialog.pop();addMessage("assistant","DeepSeek couldn't respond. Please try sending your message again.");
+   dialog.pop();addMessage("assistant","The agent couldn't respond. Please try sending your message again.");
    D.input.value=text;trace("Agent request failed. Nothing was sent.");
   }
   status(error.message||"Nothing was sent.","error");
