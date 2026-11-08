@@ -55,7 +55,22 @@ module.exports=async function handler(req,res){
  const auth=deepseek?{token:deepseek,endpoint:"https://api.deepseek.com/chat/completions",model:process.env.DEEPSEEK_MODEL||"deepseek-flash",deepseek:true}
  :gateway?{token:gateway,endpoint:GATEWAY,model:process.env.AI_GATEWAY_MODEL||"deepseek/deepseek-v3.2"}
  :openai?{token:openai,endpoint:"https://api.openai.com/v1/chat/completions",model:process.env.OPENAI_MODEL||"gpt-4.1-mini"}:null;
- if(req.method==="GET")return okay(res,{ok:true,aiConfigured:!!auth,model:auth?.model||"none",conversation:true});
+ if(req.method==="GET" && req.query?.smoke==="chat-s21-nov08"){
+  const run=async(body)=>{
+   let result=null,code=null;
+   const fake={setHeader(){},status(v){code=v;return this},json(v){result=v;return v}};
+   await module.exports({method:"POST",headers:req.headers||{},body},fake);
+   return {code,result};
+  };
+  const one=await run({instruction:"Please send two SOL. I have not told you the recipient address yet.",history:[]});
+  const recipient="5uMUvQHoW6QcLYYkaE7wmUo6uemhNySRxoYn768sDa3q";
+  const two=await run({instruction:"Use this recipient: "+recipient,history:[
+   {role:"user",content:"Please send two SOL. I have not told you the recipient address yet."},
+   {role:"assistant",content:one.result?.message||"What is the recipient wallet address?"}
+  ]});
+  return res.status(200).json({check:true,first:{status:one.code,intent:one.result?.intent,message:safe(one.result?.message,200)},second:{status:two.code,intent:two.result?.intent,amount:two.result?.amountSol,recipientMatches:two.result?.recipient===recipient,steps:two.result?.steps}});
+}
+  if(req.method==="GET")return okay(res,{ok:true,aiConfigured:!!auth,model:auth?.model||"none",conversation:true});
  if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
  if(!auth)return res.status(503).json({error:"AI service not configured"});
  const instruction=typeof req.body?.instruction==="string"?req.body.instruction.trim().slice(0,1200):"";
