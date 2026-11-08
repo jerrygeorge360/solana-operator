@@ -124,8 +124,8 @@ async function makeTransfer(result,text){
  D.minimum.textContent=fmt(minSol,6)+" SOL";
  D.remaining.textContent=fmt(remaining/sol.LAMPORTS_PER_SOL,6)+" SOL";
  trace("Read current wallet balance and network fee from Solana Devnet RPC.");
- trace("Verified recipient and amount against the user's original instruction.");
- trace("Enforced the stronger of the user-specified and agent-proposed minimum balance.");
+ trace("Recipient matched a user-provided address. Check amount and recipient in the review.");
+ trace("Minimum balance shown in the transfer review was enforced.");
  if(remaining<minLamports||remaining<0){
   pending=null;showPolicy(false,"Sending this amount would leave less SOL than you asked to keep. No transfer will be sent.");
   trace("Balance limit not met. Signing disabled.");stage(2,[1]);status("You need to lower the amount or change your limit.","error");
@@ -147,8 +147,9 @@ async function analyze(event){
  resetReview(true);
  const past=dialog.slice(-12);dialog.push({role:"user",content:text});addMessage("user",text);
  D.input.value="";setBusy(true);status("DeepSeek is reading your message…");
+ let agentResponded=false;
  try{
-  const result=await agent(text,past);renderAgent(result);
+  const result=await agent(text,past);renderAgent(result);agentResponded=true;
   if(result.intent==="balance"){
    if(publicKey){
     const value=await refreshBalance(true);
@@ -163,9 +164,15 @@ async function analyze(event){
   }else{stage(1);status("Reply below to continue.");}
   D.followup.focus({preventScroll:true});
  }catch(error){
-  dialog.pop();addMessage("assistant","DeepSeek couldn't respond. Try sending that message again.");
-  D.input.value=text;status(error.message||"Nothing was sent.","error");
-  trace("Agent request failed. Nothing was sent.");
+  if(agentResponded){
+   const explanation="I couldn't complete that step: "+(error.message||"Please check the details.");
+   addMessage("assistant",explanation);dialog.push({role:"assistant",content:explanation});
+   trace("Transfer review stopped. No transaction sent.");
+  }else{
+   dialog.pop();addMessage("assistant","DeepSeek couldn't respond. Please try sending your message again.");
+   D.input.value=text;trace("Agent request failed. Nothing was sent.");
+  }
+  status(error.message||"Nothing was sent.","error");
  }finally{setBusy(false)}
 }
 function getHistory(){
@@ -325,7 +332,7 @@ function newTask(){
  if(submittedSignature){status("An earlier transfer is still unconfirmed. Check its status before starting another.","error");$("progressPanel").scrollIntoView({behavior:"smooth",block:"nearest"});return;}D.input.value="";resetReview();status("Ready for another request.");D.input.focus();window.scrollTo({top:0,behavior:"smooth"})
 }
 function sampleBalance(){
- if(busy)return;resetReview();D.input.value="How much SOL is in my Devnet wallet?";D.input.focus();status("Balance request added. Click Check request to continue.")
+ if(busy)return;resetReview();D.input.value="How much SOL do I have?";D.input.focus();status("Message ready to send.")
 }
 function sampleTransfer(){
  if(busy)return;resetReview();D.input.value="I want to send 0.05 SOL, but keep at least 0.20 SOL in my wallet.";D.input.focus();status("DeepSeek will ask for any missing details.");
