@@ -1,40 +1,45 @@
 # Solana Operator
 
-A policy-aware on-chain assistant for Solana Devnet. Describe a wallet operation in natural language, see an explicit proposal and safety checks, then approve the transaction with your own wallet. No private key is ever collected by the application.
+A conversational DeepSeek agent for Solana Devnet. Ask about your wallet balance, prepare a SOL transfer, or plan an atomic bulk payment to multiple wallets, then review the details and approve in Phantom.
 
-**Live Git-backed app:** https://solana-operator-live.vercel.app
+**Live app:** https://solana-operator-live.vercel.app
 
-**Initial deployment (fallback):** https://solana-operator.vercel.app
+**MLH hackathon submission notes:** [SUBMISSION.md](./SUBMISSION.md)
 
-Built for the MLH Solana Hackathon (November 6–8, 2026).
+## What it does
 
-## MVP
+- Conversational DeepSeek agent with follow-up questions and multi-turn context.
+- Live Solana Devnet balance inspection via RPC.
+- Single-recipient SOL transfers and atomic **bulk transfers to 2–10 recipients**.
+- Transaction review showing all recipient addresses, per-recipient amounts, total SOL, fees, minimum wallet balance, and projected balance.
+- Deterministic validation of addresses, duplicate recipients, total amount, transaction size, current balance, and estimated fee.
+- Explicit wallet signature: **DeepSeek cannot sign or submit transfers independently**.
+- Live Devnet confirmation, Solana Explorer receipts, pending-transaction status recovery.
+- Wallet-free guided demo and Phantom mobile browser guidance.
 
-- Solana Devnet wallet connection and live balance lookup
-- Plain-English SOL transfer planning
-- Deterministic minimum-balance guardrail that includes estimated network fees
-- Human approval through the user's wallet
-- On-chain transaction confirmation with a Solana Explorer receipt
-- Server-side tool-calling AI planning through Vercel AI Gateway OIDC (subject to AI Gateway access/credits) or an explicitly configured OpenAI API key; a rule-based fallback is clearly labeled
+## Stack
 
-## Architecture
+JavaScript, HTML, CSS, **DeepSeek API** (`deepseek-flash`), Solana Web3.js, Solana Devnet RPC, Phantom wallet, Vercel Functions, GitHub/Vercel deployments.
 
-Static responsive frontend in `index.html`; Solana Web3.js in browser; Vercel serverless function in `api/agent.js` for optional AI intent parsing. Private keys never leave the wallet; policy validation takes place before wallet signing.
+## Local development
 
-## Run
+Clone this repository, install the Vercel CLI, and run `vercel dev`. Configure `DEEPSEEK_API_KEY` as a **server-side environment variable** to enable the conversational AI service; never commit a key to GitHub. A separate DeepSeek API account with credits may be needed.
 
-Serve the project using `npx vercel dev` (or any static server for the frontend). For AI intent parsing, use either Vercel AI Gateway (set `AI_GATEWAY_MODEL=deepseek/deepseek-v3.2`; requires a verified billing method on the Vercel workspace) or create a DeepSeek API key and set `DEEPSEEK_API_KEY` as an encrypted **server-side** Vercel environment variable. The direct DeepSeek API uses `deepseek-flash` by default and requires API credits. Never paste secrets into source code, chat, or the browser. The app requires a browser wallet with **Solana Devnet enabled**, and Devnet test SOL from https://faucet.solana.com.
+Use Phantom configured for **Solana Devnet**, and only Devnet test SOL from the official faucet: https://faucet.solana.com/.
 
-## Demo instruction
+## Demo walkthrough
 
-Connect a Devnet wallet, and enter: `Send 0.05 SOL to <DEVNET_RECIPIENT_ADDRESS> but keep at least 0.2 SOL.` Review the fee and projected remaining balance, approve the transaction in your wallet, then open its Solana Explorer link.
+1. Connect Phantom on Devnet.
+2. Ask: "I want to send SOL to multiple wallets. Can you help?"
+3. Supply recipient addresses, amounts, and optionally a balance to keep in follow-up messages.
+4. Review the proposed batch, fees and balance remaining.
+5. Only if you agree, sign in Phantom.
+6. Check the real on-chain transaction in Solana Explorer.
 
-**Safety:** Devnet only. No mainnet or financial advisory functionality. Confirm every transaction in your wallet.
+### Limitations
 
-## Notes
+**Devnet only.** Test SOL has no monetary value. The batch is deliberately capped at ten recipients and must fit in a single legacy Solana transaction. More complex transfer types, token swaps, recurring automation and mainnet support are not implemented. A bulk proposal and DeepSeek tool selection were tested live; an end-to-end wallet-signed bulk transaction should not be claimed as verified until it is actually recorded.
 
-This hackathon MVP is intentionally narrow. The AI component proposes an action, while deterministic code validates it and the user signs it. A parser fallback is not presented as an LLM-powered agent.
+## Safety
 
-## Live DeepSeek integration status
-
-The model-selection and tool-calling code is deployed. A real AI Gateway smoke test on 2026-11-08 returned HTTP 403 because Vercel requires a valid credit card on file for AI Gateway calls. Once Vercel billing is verified, or a funded `DEEPSEEK_API_KEY` is added to the project environment and the project redeployed, test a real instruction before claiming a successful LLM-powered demonstration. The non-AI fallback is intentionally labeled.
+This app never asks for or stores seed phrases or private keys. The agent proposes actions, while deterministic client-side checks and the user's own wallet authorize transactions. **Do not use real funds.**
