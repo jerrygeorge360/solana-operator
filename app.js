@@ -182,7 +182,7 @@ function saveHistory(signature,amount){
 }
 async function approve(){
  if(busy||!pending||!provider||!publicKey)return;
- const draft=pending;pending=null;D.approve.disabled=true;D.approve.textContent="Open your wallet…";
+ const draft=pending;pending=null;setBusy(true);D.approve.disabled=true;D.approve.textContent="Open your wallet…";
  status("Checking the balance and fee again…");
  try{
   if(provider.publicKey?.toString()!==publicKey.toBase58())throw Error("Connected wallet changed. Re-run the instruction.");
@@ -209,7 +209,7 @@ async function approve(){
   trace("Execution stopped: "+(error.message||"Unknown wallet error"));
   status("Transaction not confirmed: "+(error.message||"Unknown wallet error"),"error");
   stage(2,[1]);
- }finally{D.approve.textContent="Approve in wallet"}
+ }finally{D.approve.textContent="Continue to wallet";setBusy(false)}
 }
 function newTask(){
  if(busy)return;D.input.value="";resetReview();status("Ready for another request.");D.input.focus();window.scrollTo({top:0,behavior:"smooth"})
@@ -236,6 +236,7 @@ D.approve.addEventListener("click",approve);
 $("balancePrompt").addEventListener("click",sampleBalance);
 $("transferPrompt").addEventListener("click",sampleTransfer);
 $("newTaskBtn").addEventListener("click",newTask);
+$("mobileNewTaskBtn").addEventListener("click",newTask);
 $("activityNav").addEventListener("click",()=>$("activityPanel").scrollIntoView({behavior:"smooth",block:"center"}));
 $("guideNav").addEventListener("click",()=>$("guidePanel").scrollIntoView({behavior:"smooth",block:"center"}));
 renderHistory();stage(1);checkAgent();
