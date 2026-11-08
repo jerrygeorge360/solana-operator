@@ -4,8 +4,8 @@ Status: PREVIEW READY / HUMAN REVIEW PENDING
 
 ## Source gates completed
 - Frontend JS parses successfully using JavaScript's `Function` constructor.
-- Referenced element IDs checked against the HTML document: 42 JS ID references; none missing.
-- HTML includes 53 unique IDs; no duplicate IDs found.
+- Referenced element IDs checked against the HTML document: 43 JS ID references; none missing.
+- HTML includes 54 unique IDs; no duplicate IDs found.
 - CSS braces balanced (zero net difference).
 - CSS contains desktop, tablet (970px), mobile (700px), and small-mobile (440px) responsive rules.
 - Route mapping unchanged: `/api/agent` remains the server-side DeepSeek planner, while the browser handles Solana wallet signing.
@@ -37,3 +37,14 @@ Status: PREVIEW READY / HUMAN REVIEW PENDING
 - User approval of the design direction.
 
 Do not interpret the absence of logs/build errors as proof these real browser interactions work. Production release is not approved.
+
+## Copy / interaction pass (Nov 8, 2026)
+
+- Replaced abstract AI slogans and anthropomorphic product claims with specific wallet actions, amounts, fees, and confirmation language.
+- Removed direct model-generated explanation from the main transaction result; UI presents only user input, structured proposal, validated state and recorded tool events.
+- Instructed DeepSeek to keep tool explanations brief and factual.
+- Connected the mobile New request button and prevented workspace reset during wallet approval.
+- Changed Run request to ask for a wallet connection explicitly instead of unexpectedly opening the wallet extension.
+- Copy rules are recorded in `design/CONTENT_RULES.md`.
+- Final latest preview Vercel build READY; GET for `/`, `/app.js`, `/styles.css`, and `/api/agent` all returned HTTP 200. AI endpoint reports DeepSeek configured (not proof that the full wallet flow was exercised).
+- Production still unaffected. Browser/device and transaction tests remain required before release.
