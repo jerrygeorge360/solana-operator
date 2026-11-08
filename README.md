@@ -2,7 +2,9 @@
 
 A policy-aware on-chain assistant for Solana Devnet. Describe a wallet operation in natural language, see an explicit proposal and safety checks, then approve the transaction with your own wallet. No private key is ever collected by the application.
 
-**Live prototype:** https://solana-operator.vercel.app
+**Live Git-backed app:** https://solana-operator-live.vercel.app
+
+**Initial deployment (fallback):** https://solana-operator.vercel.app
 
 Built for the MLH Solana Hackathon (November 6–8, 2026).
 
@@ -13,7 +15,7 @@ Built for the MLH Solana Hackathon (November 6–8, 2026).
 - Deterministic minimum-balance guardrail that includes estimated network fees
 - Human approval through the user's wallet
 - On-chain transaction confirmation with a Solana Explorer receipt
-- Optional server-side AI interpretation via Vercel AI Gateway or OpenAI (requires configured provider; rule-based fallback is clearly labeled)
+- Server-side tool-calling AI planning through Vercel AI Gateway OIDC (subject to AI Gateway access/credits) or an explicitly configured OpenAI API key; a rule-based fallback is clearly labeled
 
 ## Architecture
 
