@@ -46,6 +46,13 @@ module.exports=async function handler(req,res){
   const gatewayToken=process.env.AI_GATEWAY_API_KEY||req.headers?.["x-vercel-oidc-token"]||process.env.VERCEL_OIDC_TOKEN;
   const openaiToken=process.env.OPENAI_API_KEY;
   const auth=gatewayToken?{token:gatewayToken,gateway:true}:openaiToken?{token:openaiToken,gateway:false}:null;
+  if(req.method==="GET" && req.query?.probe==="check-gateway-20261108") {
+    if(!auth)return res.status(503).json({ok:false,error:"Not configured"});
+    try {
+      const message=await chat([{role:"system",content:"Reply exactly READY. Do not use tools."},{role:"user",content:"Are you ready?"}],auth);
+      return res.status(200).json({ok:true,model:process.env.AI_GATEWAY_MODEL,responded:!!(message.content||message.tool_calls?.length)});
+    }catch(error){return res.status(502).json({ok:false,error:safe(error.message,160)})}
+  }
   if(req.method==="GET")return res.status(200).json({ok:true,aiConfigured:!!auth,model:auth?.gateway?(process.env.AI_GATEWAY_MODEL||"not configured"):(auth?"direct provider":"none")});
   if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
   if(!auth)return res.status(503).json({error:"No AI provider is configured"});
