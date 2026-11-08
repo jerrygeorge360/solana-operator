@@ -76,14 +76,13 @@ async function connectWallet(silent=false){
  }catch(error){status(error.message||"Unable to connect a wallet.","error");return false}
 }
 function parseFallback(text){
- const amount=text.match(/(?:send|transfer|pay)\s+(\d+(?:\.\d+)?)\s*sol\b/i);
- const recipient=text.match(/\bto\s+([1-9A-HJ-NP-Za-km-z]{32,44})\b/);
- const reserve=text.match(/(?:keep|retain|leave|minimum|at least)\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*sol\b/i);
+ const p=window.OperatorIntent.parse(text);
  return {
-  mode:"fallback",intent:amount?"transfer":(/\bbalance\b|\bhow much\b|\bwallet\b|\bfunds\b/i.test(text)?"balance":"unknown"),amountSol:amount?Number(amount[1]):null,
-  recipient:recipient?recipient[1]:null,minimumBalanceSol:reserve?Number(reserve[1]):0,
-  explanation:amount?"DeepSeek was unavailable. A simple rule matched the transfer request; no money has been sent.":"DeepSeek was unavailable. The request will be handled without an AI model.",
-  steps:["DeepSeek was unavailable. Used the built-in text parser. No transfer was sent."]
+  mode:"fallback",
+  intent:p.transferRequested?"transfer":(p.balanceRequested?"balance":"unknown"),
+  amountSol:p.amountSol,recipient:p.recipient,minimumBalanceSol:p.minimumBalanceSol??0,
+  explanation:"DeepSeek was unavailable. The built-in parser read this request; no transfer was sent.",
+  steps:["DeepSeek was unavailable. Used the built-in parser; no transaction was sent."]
  };
 }
 async function agent(text){
@@ -112,15 +111,18 @@ function renderAgent(result,instruction){
  trace("Network: Solana Devnet.");
  D.response.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
-function requestedAmount(text){const r=text.match(/(?:send|transfer|pay)\s+(\d+(?:\.\d+)?)\s*sol\b/i);return r?Number(r[1]):null}
-function requestedMinimum(text){const r=text.match(/(?:keep|retain|leave|minimum|at least)\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*sol\b/i);return r?Number(r[1]):null}
+function requestedAmount(text){return window.OperatorIntent.parse(text).amountSol}
+function requestedMinimum(text){return window.OperatorIntent.parse(text).minimumBalanceSol}
 async function makeTransfer(result,text){
- const sol=SDK(),amount=Number(result.amountSol),aiMinimum=Number(result.minimumBalanceSol??0);
- const actualAmount=requestedAmount(text);
- if(!Number.isFinite(amount)||amount<=0||!Number.isFinite(aiMinimum)||aiMinimum<0)throw Error("Transfer details are invalid.");
- if(actualAmount===null||Math.abs(amount-actualAmount)>1e-9)throw Error("The AI amount does not match your instruction. Specify an amount like 'send 0.05 SOL'.");
- if(typeof result.recipient!=="string"||!text.includes(result.recipient))throw Error("Recipient address missing or different from your instruction. Include a real Devnet wallet address.");
- const recipient=new (sol.PublicKey)(result.recipient);
+ const sol=SDK(),parsed=window.OperatorIntent.parse(text);
+ const amount=Number(result.amountSol),aiMinimum=Number(result.minimumBalanceSol??0);
+ const actualAmount=parsed.amountSol;
+ if(actualAmount===null||actualAmount<=0)throw Error("Include a positive amount, such as 'send 2 SOL'.");
+ if(!Number.isFinite(amount)||amount<=0||!Number.isFinite(aiMinimum)||aiMinimum<0)throw Error("The transfer amount or reserve is invalid.");
+ if(Math.abs(amount-actualAmount)>1e-9)throw Error("The suggested amount differs from your request. No transfer was prepared. Please check the amount and try again.");
+ if(parsed.recipientCount!==1||!parsed.recipient)throw Error("Add one recipient address after 'to', for example 'send 2 SOL to <wallet address>'.");
+ if(result.recipient&&result.recipient!==parsed.recipient)throw Error("The suggested recipient differs from your request. No transfer was prepared.");
+ const recipient=new (sol.PublicKey)(parsed.recipient);
  const lamports=Math.round(amount*sol.LAMPORTS_PER_SOL);
  const minSol=Math.max(aiMinimum,requestedMinimum(text)??0);
  const minLamports=Math.ceil(minSol*sol.LAMPORTS_PER_SOL);
@@ -159,7 +161,22 @@ async function analyze(event){
  resetReview();setBusy(true);status("Checking your request…");
  try{
   if(!publicKey){status("Connect your wallet first. Your request will stay here.","error");D.connect.focus();return;}
-  const result=await agent(text);renderAgent(result,text);
+  const parsed=window.OperatorIntent.parse(text);
+  if(parsed.transferRequested){
+    if(parsed.amountSol===null||parsed.amountSol<=0){
+      status("Include an amount, for example: Send 2 SOL to [wallet address].","error");D.input.focus();return;
+    }
+    if(parsed.recipientCount!==1||!parsed.recipient){
+      status("Add the recipient’s full wallet address after 'to'. Example: Send 0.05 SOL to [wallet address].","error");D.input.focus();return;
+    }
+  }
+  if(submittedSignature){
+    status("You have a submitted transaction without a confirmed result. Check its status before sending another.","error");
+    $("progressPanel").scrollIntoView({behavior:"smooth",block:"nearest"});return;
+  }
+  let result=await agent(text);
+  if(parsed.transferRequested&&parsed.recipient&&result.intent==="unknown")result=parseFallback(text);
+  renderAgent(result,text);
   if(result.intent==="balance"){
    const balance=await refreshBalance(true);
    D.readout.hidden=false;D.observed.textContent=fmt(balance/SDK().LAMPORTS_PER_SOL,6);
