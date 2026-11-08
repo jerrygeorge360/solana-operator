@@ -248,7 +248,7 @@ async function checkSubmittedStatus(){
   const response=await conn().getSignatureStatuses([sig],{searchTransactionHistory:true});
   const value=response?.value?.[0];
   if(!value){progress("unknown","No confirmation found yet. Check the Explorer link before trying another transfer.",sig);return}
-  if(value.err){progress("failed","Solana reported a transaction error. See Explorer for details.",sig);status("The transaction failed on-chain.","error");return}
+  if(value.err){progress("failed","Solana reported a transaction error. See Explorer for details.",sig);$("checkSignatureBtn").hidden=true;clearSubmitted();status("The transaction failed on-chain. You can start a new request.","error");return}
   if(["confirmed","finalized"].includes(value.confirmationStatus)){
     confirmedReceipt(sig,submittedAmount);
     trace("Solana RPC confirmed transaction "+sig);
@@ -319,8 +319,10 @@ async function approve(){
  }catch(error){
   trace("Execution stopped: "+(error.message||"Unknown wallet error"));
   if(signedSignature){
-   progress("unknown","Submitted, but confirmation could not be verified. Do not resend yet; use Check status or Explorer.",signedSignature);
-   status("Confirmation is still unknown. Check the existing transaction first.","error");
+   const knownFailure=String(error.message||"").includes("Solana reported a transaction failure");
+   progress(knownFailure?"failed":"unknown",knownFailure?"Solana reported a failed transaction. See Explorer.":"Submitted, but confirmation could not be verified. Do not resend yet; use Check status or Explorer.",signedSignature);
+   if(knownFailure){$("checkSignatureBtn").hidden=true;clearSubmitted();status("This transaction failed on-chain. You can start a new request.","error");}
+   else status("Confirmation is still unknown. Check the existing transaction first.","error");
   }else{
    progress("failed",error.message||"Wallet approval was cancelled.");
    status("No confirmed transfer. "+(error.message||"Wallet request stopped."),"error");
